@@ -124,9 +124,8 @@ class Privacy(Model):
     context_reporting_acknowledged: bool = False
     excluded_member_ids: list[Snowflake] = Field(default_factory=list)
     listening_notice: str = Field(
-        default="DisCuss processes voice locally for profanity standings; audio and full "
-        "transcripts are discarded. Use opt-out or ask an administrator to disable "
-        "monitoring or delete your local data.",
+        default="DisCuss counts voice profanity locally; audio/transcripts are discarded; "
+        "/discuss opt_out or opt_in controls your participation.",
         min_length=20,
         max_length=1000,
     )

@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from difflib import SequenceMatcher
 from zoneinfo import ZoneInfo
 
-from .config import Config, Server
+from .config import Config, Privacy, Server
 from .lexicon import TOKEN, Match
 from .storage import Store
 
@@ -168,8 +168,7 @@ def render(instance: Instance, speaker: str, server: Server) -> str:
     at = instance.at.astimezone(ZoneInfo(server.leaderboards.timezone))
     stamp = f"{MONTHS[at.month - 1]} {at.day}, {at.year} @ {at.hour % 12 or 12}:{at.minute:02d} "
     stamp += f"{'am' if at.hour < 12 else 'pm'} {at.tzname()}"
-    count = "cuss" if instance.count == 1 else "cusses"
-    return f"{safe_text(speaker, 64)} : “{instance.quote}”, {stamp} -> {instance.count} {count}"
+    return f"“{instance.quote}” — {safe_text(speaker, 64)}, {stamp}"
 
 
 def notice(server: Server, channel_name: str | None = None) -> str:
@@ -177,12 +176,11 @@ def notice(server: Server, channel_name: str | None = None) -> str:
     if not settings.enabled:
         return server.privacy.listening_notice
     destination = f"#{safe_text(channel_name)}" if channel_name else "the configured reporting channel"
-    return (
-        server.privacy.listening_notice + f" Contextual detection reports are enabled: up to "
-        f"{settings.context_words_per_side} words each side of detected speech are posted in "
-        f"{destination}. Discord retains posted excerpts; "
-        "opt-out/delete stops pending reports, while already posted text needs operator removal."
-    )
+    disclosure = f"excerpts go to {destination} and remain on Discord"
+    text = server.privacy.listening_notice
+    if text == Privacy.model_fields["listening_notice"].default:
+        return text.replace("locally;", f"locally; {disclosure};", 1)
+    return text + f" {disclosure[0].upper() + disclosure[1:]}."
 
 
 class DetectionFeed:

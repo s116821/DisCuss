@@ -78,9 +78,9 @@ def test_context_grouping_original_case_punctuation_unicode_and_timezone() -> No
     server = configured().servers[0]
     server.leaderboards.timezone = "America/Chicago"
     line = render(group[0], "Stark", server)
-    assert line.startswith("Stark : “") and "October 13, 2026 @ 5:26 pm CDT -> 2 cusses" in line
+    assert line == f"“{group[0].quote}” — Stark, October 13, 2026 @ 5:26 pm CDT"
     assert "(100)" not in line
-    assert line.endswith("-> 2 cusses") and "[server" not in line and " / channel" not in line
+    assert "cusses" not in line and "[server" not in line and " / channel" not in line
     assert group[0].quote not in repr(group[0])
     # Same lexicon behavior for composing characters and expanding compatibility tokens.
     for raw, word in (("cafe\u0301!", "café"), ("ﬃ!", "ffi"), ("İ!", "i")):
@@ -114,8 +114,8 @@ def test_immediate_digest_speaker_separation_and_idempotence(tmp_path: Path) -> 
         add(store, feed, "a")
         add(store, feed, "b", member="200")
         await asyncio.sleep(0.02)
-        assert len(pages) == 1 and pages[0].count("-> 2 cusses") == 2
-        assert "Stark : “" in pages[0] and "Other : “" in pages[0]
+        assert len(pages) == 1 and pages[0].count(" — ") == 2
+        assert " — Stark," in pages[0] and " — Other," in pages[0]
         add(store, feed, "a")
         feed.tick()
         await asyncio.sleep(0)
@@ -149,7 +149,7 @@ def test_interval_empty_windows_and_bounded_queue(tmp_path: Path) -> None:
         clock[0] = 60
         feed.tick()
         await asyncio.sleep(0.02)
-        assert len(pages) == 1 and pages[0].count("-> 2 cusses") == 2
+        assert len(pages) == 1 and pages[0].count(" — Member,") == 2
         clock[0] = 120
         feed.tick()
         await asyncio.sleep(0)
@@ -174,8 +174,8 @@ def test_pagination_partial_retry_and_no_local_quote_storage(tmp_path: Path) -> 
             pages.append(page)
             return str(len(pages))
 
-        feed.bind(send, lambda s, m: "Member", lambda s: True)
-        for number in range(20):
+        feed.bind(send, lambda s, m: "Member-" + m, lambda s: True)
+        for number in range(40):
             add(store, feed, str(number), member=str(100 + number), text="UNRELATEDMARKER violet **@everyone**")
         clock[0] = 60
         feed.tick()
@@ -185,7 +185,7 @@ def test_pagination_partial_retry_and_no_local_quote_storage(tmp_path: Path) -> 
         feed.tick()
         await asyncio.sleep(0.05)
         assert len(pages) > 1 and all(units(page) <= 1900 for page in pages)
-        assert sum(page.count("-> 1 cuss") for page in pages) == 20
+        assert sum(page.count(" — Member-") for page in pages) == 40
         assert attempts.count(pages[0]) == 1 and not feed.pending
         assert all("@everyone" not in p for p in pages)
         assert "UNRELATEDMARKER" not in " ".join(store.db.iterdump())
@@ -260,7 +260,7 @@ def test_primary_channel_fallback_override_and_safe_sdk_arguments(tmp_path: Path
         listener.client.get_guild = Mock(return_value=server)
         policy = cfg.servers[0]
         await listener.notice(policy)
-        assert "posted in #leaderboard-alerts" in channel.send.call_args.args[0]
+        assert "excerpts go to #leaderboard-alerts" in channel.send.call_args.args[0]
         await listener.publish_detections(policy, "Safe test")
         server.get_channel.assert_called_with(int(policy.report_channel_id))
         policy.detection_reporting.channel_id = "50"
@@ -275,10 +275,15 @@ def test_primary_channel_fallback_override_and_safe_sdk_arguments(tmp_path: Path
         assert kwargs["suppress_embeds"] and not kwargs["allowed_mentions"].everyone
         assert not kwargs["allowed_mentions"].users and not kwargs["allowed_mentions"].roles
         await listener.notice(policy)
-        assert "posted in #separate-alerts" in channel.send.call_args.args[0]
+        assert "excerpts go to #separate-alerts" in channel.send.call_args.args[0]
         assert "configured reporting channel" in notice(policy) and "channel 50" not in notice(policy)
         assert "＠everyone" in notice(policy, "@everyone") and "@everyone" not in notice(policy, "@everyone")
-        assert "Discord retains" in notice(policy)
+        concise = notice(policy, "separate-alerts")
+        assert "remain on Discord" in concise and "opt_out or opt_in" in concise
+        assert "\n" not in concise and len(concise) < 220 and "words each side" not in concise
+        custom = policy.model_copy(deep=True)
+        custom.privacy.listening_notice = "Custom server processing notice for this test."
+        assert notice(custom, "separate-alerts").startswith(custom.privacy.listening_notice)
         separate.permissions_for.return_value.send_messages = False
         with pytest.raises(ValueError, match="permissions"):
             await listener.publish_detections(policy, "Safe test")
@@ -357,7 +362,7 @@ def test_page_budget_drains_one_digest_and_defers_new_interval_items(tmp_path: P
             return str(len(pages))
 
         feed.bind(send, lambda s, m: "Member-" + m, lambda s: True)
-        for number in range(20):
+        for number in range(40):
             add(store, feed, str(number), member=str(100 + number))
         clock[0] = 60
         feed.tick()
@@ -368,7 +373,7 @@ def test_page_budget_drains_one_digest_and_defers_new_interval_items(tmp_path: P
         for _ in range(10):
             feed.tick()
             await asyncio.sleep(0.01)
-        assert sum(page.count("-> 2 cusses") for page in pages) == 20
+        assert sum(page.count(" — Member-") for page in pages) == 40
         assert [i.member for i in feed.pending] == ["999"]
         clock[0] = 121
         feed.tick()
@@ -458,7 +463,7 @@ def test_all_listeners_share_primary_feed_with_independent_servers(tmp_path: Pat
         await coordinator.report_tick(moment(), 0)
         await asyncio.sleep(0.02)
         assert len(primary.quotes) == len(secondary.quotes) == 1
-        assert primary.quotes[0][0] == "1" and primary.quotes[0][1].count("-> 1 cuss") == 2
+        assert primary.quotes[0][0] == "1" and primary.quotes[0][1].count(" — primary-cached-name-") == 2
         assert secondary.quotes[0][0] == "2" and "secondary-cached-name-300" in secondary.quotes[0][1]
         assert "secondary-cached-name-300" not in primary.quotes[0][1]
         await coordinator.close(moment())

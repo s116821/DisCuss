@@ -247,7 +247,7 @@
           "type": "array"
         },
         "listening_notice": {
-          "default": "DisCuss processes voice locally for profanity standings; audio and full transcripts are discarded. Use opt-out or ask an administrator to disable monitoring or delete your local data.",
+          "default": "DisCuss counts voice profanity locally; audio/transcripts are discarded; /discuss opt_out or opt_in controls your participation.",
           "maxLength": 1000,
           "minLength": 20,
           "title": "Listening Notice",
