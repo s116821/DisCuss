@@ -66,4 +66,4 @@ pythonpath = ["src", "."]
 include = ["src"]
 
 [tool.uv.sources]
-discord-voice-reception = { url = "https://github.com/s116821/DiscordVoiceReception/archive/823f586d0c8504b5b808d60dfc6ef8667b23be18.tar.gz" }
+discord-voice-reception = { url = "https://github.com/s116821/DiscordVoiceReception/archive/b68549dd0b45435d7e7e12de5fd6e0982d107e86.tar.gz" }
