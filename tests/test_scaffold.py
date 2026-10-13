@@ -59,6 +59,9 @@ def test_actual_tag_build_and_release_assets(tmp_path: Path) -> None:
     shutil.copytree(ROOT / "src", repo / "src", ignore=shutil.ignore_patterns("__pycache__"))
     if (ROOT / "deploy").exists():
         shutil.copytree(ROOT / "deploy", repo / "deploy")
+        shutil.copytree(ROOT / "docs", repo / "docs")
+        shutil.copy2(ROOT / "config.example.json", repo / "config.example.json")
+        (repo / "runtime-requirements.txt").write_text("# Synthetic assembly fixture only\n")
     run_git(repo, "init")
     run_git(repo, "add", ".")
     run_git(
@@ -76,7 +79,7 @@ def test_actual_tag_build_and_release_assets(tmp_path: Path) -> None:
     subprocess.run(["uv", "build", "--out-dir", str(repo / "dist")], cwd=repo, check=True, capture_output=True)
     wheel = next((repo / "dist").glob("*.whl"))
     assert artifact_version(wheel) == "1.2.3"
-    assets = assemble(repo, repo / "dist", "v1.2.3")
+    assets = assemble(repo, repo / "dist", "v1.2.3", allow_development=True)
     assert (repo / "dist/SHA256SUMS").is_file()
     assert all("1.2.3" in p.name or p.name == "SHA256SUMS" for p in assets)
     with pytest.raises(ValueError, match="metadata does not match"):

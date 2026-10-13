@@ -1,0 +1,9 @@
+# Design
+
+Installers run only from extracted verified bundles as administrator/root. Code lives in versioned release environments; config/state/cache live outside them. uv0.13.0 archives are pinned by published SHA-256 and bootstrap managed CPython3.12.15 without changing operator PATH/global auth. Only binary locked runtime wheels are allowed. Boot invokes the venv interpreter directly, never a uv or PowerShell coordinator.
+
+Linux uses system-level systemd, a dedicated no-login discuss user, protected config/state and root-owned immutable code. Windows uses LocalService ServiceAccount/limited AtStartup, unlimited duration, IgnoreNew, boot-network readiness and three restart attempts. ACLs give runtime read/execute code, read config and modify state; Administrators/SYSTEM retain control.
+
+Inspect/stop existing service/task, back up its definition and config plus SQLite via read-only backup API before installing a candidate. Managed marker rejects collision with unrelated registrations. Save current/previous metadata and recovery snapshots; failed install restores prior definition and running state. Explicit rollback restores snapshot SQLite through backup API (not raw copy over WAL) plus config, then switches interpreter. Uninstall unregisters boot startup and retains all data/code/cache for recovery. No recursive deletion is needed.
+
+Manifest contains tag/version/platform/Python/uv pins, receiver source classification and per-file hashes. Assembly validates tag metadata and requires complete installer/docs/runtime requirements. Development bundles permit immutable receiver archives only for offline CI; publication preflight rejects any non-stable exact PyPI pin before semantic-release runs. CI builds once per OS, extracts exact assembled assets and invokes installer smoke/plan paths; full privileged install is confined to disposable CI VMs. Reboot proof is not inferred from a running runner.

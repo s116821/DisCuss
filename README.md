@@ -2,7 +2,7 @@
 
 Self-hosted Discord voice profanity competition, with one Python process coordinating one or multiple separately authorized bot identities.
 
-**Current status: offline-verified runtime.** Protected policy/statistics, one-process coordination, Discord adapters, bounded local speech, privacy controls, reports and diagnostics are implemented. See [runtime setup and limits](docs/runtime.md). Native deployment remains separate work and no functional release is qualified.
+**Current status: qualification in progress.** Protected policy/statistics, one-process coordination, Discord adapters, local speech, privacy controls, reports, diagnostics and native boot installers are implemented. See [runtime setup and limits](docs/runtime.md) and [native install/upgrade guide](deploy/INSTALL.md). Live Discord, actual VM reboot and stable receiver publication are required before a functional release.
 
 See [configuration](docs/configuration.md), [statistics/operations](docs/statistics.md) and [privacy](docs/privacy.md). Run `discuss --config PATH doctor` for offline setup preflight. The example JSON intentionally contains placeholder setup; never put real credentials in the repository. Canonical tracking is the DisCuss Linear roadmap.
 
@@ -35,7 +35,7 @@ Git tags are the sole version source. Hatchling and uv-dynamic-versioning derive
 
 Successful main-branch quality calls the reusable release workflow only when the repository variable `RELEASE_READY=true` has been set **after functional qualification**. Leave it unset for this foundation. The workflow creates the tag, builds from that tag, validates metadata, attaches SHA-256 checksums and GitHub artifact attestations in the same run. It does not depend on GITHUB_TOKEN tag events launching a separate workflow.
 
-DisCuss GitHub Releases are the canonical application distribution. The foundation bundles contain a wheel and installer scaffolds; native install/upgrade behavior is delivered by later issues. No managed hosting is planned.
+DisCuss GitHub Releases are the canonical application distribution. Lean OS archives contain the wheel, hashed dependencies, native installer/recovery helper, manifest, config example and operator guides. Models stay in external state. The release workflow checks the stable PyPI receiver pin before tagging, then smoke tests the exact extracted assets on both OSes before attesting/uploading them. No managed hosting is planned.
 
 ## Provenance and license
 
