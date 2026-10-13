@@ -1,0 +1,15 @@
+{
+  "name": "project-engineering",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:release": "node scripts/test-release-analyzer.mjs",
+    "spec:validate": "openspec validate --specs --strict",
+    "spec:check": "uv run python scripts/check_openspec.py"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "1.14.1",
+    "semantic-release": "25.0.2",
+    "conventional-changelog-conventionalcommits": "9.1.0"
+  }
+}

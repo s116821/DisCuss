@@ -1,0 +1,45 @@
+[project]
+name = "discuss"
+description = "Self-hosted Discord voice profanity competition."
+readme = "README.md"
+requires-python = ">=3.12"
+dynamic = ["version"]
+license = "GPL-3.0-only"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8.3", "ruff>=0.11", "ty>=0.0.1", "packaging>=24", "pyyaml>=6.0"]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/discuss"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src/discuss" = "discuss"
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["src", "."]
+
+[tool.ty.src]
+include = ["src"]
