@@ -23,7 +23,7 @@ MAX_BYTES = 4194304
 MAX_TEXT = 16000
 MAX_EXCERPT_UNITS = 750
 PAGE_UNITS = 1900
-HEADER = "Detected speech (recognition may be wrong)"
+HEADER = ""
 MONTHS = (
     "January",
     "February",
@@ -350,7 +350,7 @@ class DetectionFeed:
             if units(page) + units(line) + 1 > PAGE_UNITS:
                 pages.append((page, items))
                 page, items = HEADER, []
-            page += "\n" + line
+            page += ("\n" if page else "") + line
             items.append(item)
         if items:
             pages.append((page, items))

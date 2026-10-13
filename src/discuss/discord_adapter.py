@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import time
+from collections.abc import Iterable
 from datetime import UTC, datetime
 
 import discord
@@ -13,9 +15,9 @@ from discord_voice_reception import AudioFrame, VoiceRecvClient
 from .calendar import window_at
 from .config import Bot, Config, Server
 from .coordinator import Coordinator
-from .detection_reporting import notice
+from .detection_reporting import notice, safe_text
 from .policy import ChannelPresence, MemberPresence
-from .reporting import render, safe_word, standings
+from .reporting import render, render_word_counts, report_members, resolve_page_names, standings
 from .speech import PipelineSink, SpeechPipeline
 from .storage import Store
 
@@ -62,6 +64,8 @@ class DiscordListener:
         self._closing = False
         self.setup_failed = False
         self._expected_channels: dict[str, str] = {}
+        self._name_cache: dict[str, tuple[float, str]] = {}
+        self._name_slots = asyncio.Semaphore(4)
         self._add_commands()
         self.tree.add_command(self.commands)
 
@@ -232,7 +236,37 @@ class DiscordListener:
     def speaker_name(self, server: str, member: str) -> str:
         instance = self.client.get_guild(int(server))
         person = instance.get_member(int(member)) if instance else None
-        return person.display_name if person else "Member"
+        person = person or self.client.get_user(int(member))
+        if person is not None and isinstance(person.display_name, str):
+            return person.display_name
+        cached = self._name_cache.get(member)
+        return cached[1] if cached and cached[0] > time.monotonic() else "Unknown member"
+
+    async def resolve_members(self, server: str, members: Iterable[str]) -> None:
+        async def resolve(member: str) -> None:
+            if self.speaker_name(server, member) != "Unknown member":
+                return
+            cached = self._name_cache.get(member)
+            if cached and cached[0] > time.monotonic():
+                return
+            async with self._name_slots:
+                try:
+                    person = await asyncio.wait_for(self.client.fetch_user(int(member)), 5)
+                    name, expiry = person.display_name, 900
+                except (discord.HTTPException, OSError, TimeoutError):
+                    name, expiry = "Unknown member", 60
+                if len(self._name_cache) >= 4096:
+                    self._name_cache.pop(next(iter(self._name_cache)))
+                self._name_cache[member] = time.monotonic() + expiry, name
+
+        await asyncio.gather(*(resolve(member) for member in set(members)))
+
+    def channel_name(self, server: str, channel: str | None) -> str:
+        if channel is None:
+            return "Not connected"
+        instance = self.client.get_guild(int(server))
+        target = instance.get_channel(int(channel)) if instance else None
+        return "#" + safe_text(target.name, 64) if target is not None else "Unavailable channel"
 
     async def publish_detections(self, server: Server, page: str) -> str:
         channel_id = server.detection_reporting.channel_id or server.report_channel_id
@@ -247,7 +281,11 @@ class DiscordListener:
         return str(message.id)
 
     async def publish(self, server: Server, page: str, period: str, index: int) -> str:
-        message = await self._report_channel(server).send(page, allowed_mentions=discord.AllowedMentions.none())
+        await self.resolve_members(server.server_id, report_members(page))
+        page = resolve_page_names(page, lambda member: self.speaker_name(server.server_id, member))
+        message = await self._report_channel(server).send(
+            page, allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True
+        )
         return str(message.id)
 
     def _policy(self, interaction: discord.Interaction) -> Server | None:
@@ -274,15 +312,24 @@ class DiscordListener:
                 await self._reply(interaction, ["Unknown reporting period."])
                 return
             window = window_at(datetime.now(UTC), server.leaderboards.timezone, period)
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
+            board = standings(self.store, server.server_id, window, server.leaderboards)
+            await self.resolve_members(server.server_id, {r.member_id for r in board.total + board.scaled})
             await self._reply(
-                interaction, render(window, standings(self.store, server.server_id, window, server.leaderboards))
+                interaction,
+                render(
+                    window,
+                    board,
+                    member_name=lambda member: self.speaker_name(server.server_id, member),
+                    timezone=server.leaderboards.timezone,
+                    show_scaled=server.leaderboards.scaled.enabled,
+                ),
             )
 
         @self.commands.command(name="words", description="Show a member's current-period tracked-word counts")
         @app_commands.choices(period=[app_commands.Choice(name=p, value=p) for p in ("day", "week", "month", "year")])
-        async def words(
-            interaction: discord.Interaction, member: discord.Member | None = None, period: str = "week"
-        ) -> None:
+        async def words(interaction: discord.Interaction, member: discord.Member, period: str = "week") -> None:
             server = self._policy(interaction)
             if server is None:
                 await self._reply(interaction, ["This command requires a configured Discord server."])
@@ -291,17 +338,11 @@ class DiscordListener:
                 await self._reply(interaction, ["Unknown reporting period."])
                 return
             window = window_at(datetime.now(UTC), server.leaderboards.timezone, period)
-            target = str((member or interaction.user).id)
+            target = str(member.id)
             counts = self.store.counts(server.server_id, window.start, window.end).get(target, {})
-            rows = [f"{safe_word(word)}: {count}" for word, count in sorted(counts.items())]
-            pages, current = [], f"Member {target} | current {period}"
-            for row in rows:
-                if len(current) + len(row) + 1 > 1900:
-                    pages.append(current)
-                    current = f"Member {target} | current {period}"
-                current += "\n" + row
-            pages.append(current if rows else current + "\nNo tracked detections.")
-            await self._reply(interaction, pages)
+            await self._reply(
+                interaction, render_word_counts(window, counts, member.display_name, server.leaderboards.timezone)
+            )
 
         @self.commands.command(name="opt_out", description="Stop collecting your future voice statistics")
         async def opt_out(interaction: discord.Interaction) -> None:
@@ -363,19 +404,23 @@ class DiscordListener:
                 await self._reply(interaction, ["Server administrator permission is required."])
                 return
             coordinator = self.coordinator
-            rows = [f"Server {server.server_id}; speech admission ready={self.pipeline.ready}"]
+            instance = self.client.get_guild(int(server.server_id))
+            title = safe_text(instance.name, 64) if instance else "Server"
+            rows = [f"**{title} — service status**", f"Speech processing ready: {self.pipeline.ready}"]
             feed = self.pipeline.detection_feed
             rows.append(
                 f"Detection feed: pending={sum(i.server == server.server_id for i in feed.pending)}, "
                 f"service drops={feed.dropped}, expired={feed.expired}, delivery failures={feed.failures}"
             )
             if coordinator is not None:
-                rows.extend(
-                    f"Identity {name}: channel={worker.current_channel(server.server_id)}, "
-                    f"connected={worker.connected(server.server_id)}, "
-                    f"capture ready={worker.capture_ready(server.server_id)}"
-                    for name, worker in coordinator.listeners.items()
-                )
+                for name, worker in coordinator.listeners.items():
+                    user = getattr(getattr(worker, "client", None), "user", None)
+                    label = safe_text(user.display_name if user else name, 64)
+                    channel = self.channel_name(server.server_id, worker.current_channel(server.server_id))
+                    rows.append(
+                        f"Listener {label}: {channel}, connected={worker.connected(server.server_id)}, "
+                        f"capture ready={worker.capture_ready(server.server_id)}"
+                    )
                 if server.server_id in coordinator.errors:
                     rows.append(coordinator.errors[server.server_id])
             await self._reply(interaction, ["\n".join(rows)])

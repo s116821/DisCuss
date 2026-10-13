@@ -115,6 +115,7 @@ def test_immediate_digest_speaker_separation_and_idempotence(tmp_path: Path) -> 
         add(store, feed, "b", member="200")
         await asyncio.sleep(0.02)
         assert len(pages) == 1 and pages[0].count(" — ") == 2
+        assert pages[0].startswith("“") and "Detected speech" not in pages[0]
         assert " — Stark," in pages[0] and " — Other," in pages[0]
         add(store, feed, "a")
         feed.tick()
@@ -333,7 +334,7 @@ def test_pipeline_new_counts_only_and_report_work_is_independent(tmp_path: Path)
         assert len(pipeline.detection_feed.pending) == 1
         release.set()
         await asyncio.sleep(0.02)
-        assert len(pages) == 1 and pages[0].startswith(HEADER)
+        assert len(pages) == 1 and pages[0].startswith("“")
         await coordinator.close(moment())
         store.close()
 
