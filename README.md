@@ -8,6 +8,8 @@ See [configuration](docs/configuration.md), [statistics/operations](docs/statist
 
 [Broader synthetic measurements](docs/benchmarks/README.md) found missed detections and bounded overload. Recognition accuracy and sustained listener capacity remain unqualified; isolated successful clips cannot establish reliable competition counts.
 
+[Contextual detection reports](docs/detection-reporting.md) can optionally show speaker, recognized excerpt, time and match count. They default to the leaderboard channel, use three words on each side, and support interval digests or a separate channel. Enable only after explicit excerpt-publication acknowledgement; posted Discord text has different retention from local statistics.
+
 ## Development
 
 Install uv and Node.js 24, then run:

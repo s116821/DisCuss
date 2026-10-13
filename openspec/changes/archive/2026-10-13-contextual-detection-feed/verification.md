@@ -1,0 +1,7 @@
+# Verification
+
+Windows offline: 71 tests passed (15 dedicated contextual-feed tests), Ruff lint/format and ty passed, the actual configured semantic-release analyzer passed 13 behavioral cases, and source/wheel builds succeeded. Locked runtime/development dependencies synced. Linux/Windows CI and native/synthetic speech jobs will run on the stacked PR; no live Discord testing was attempted.
+
+Requirements exercised: disabled defaults and explicit publication acknowledgement; three words each side; leaderboard channel fallback/separate override; primary publisher across all same-server listeners and separate server routing; original Unicode/case/punctuation, overlapping grouping and speaker separation; timezone/date/count; immediate and positive cadence; bounded UTF16 pages, partial acknowledgement retry, page-budget continuation and next-window arrivals; malicious markup/mention suppression; instance/byte/age bounds; shutdown/reload/opt-out/disable/CLI delete cleanup; idempotent stored counts and independent report work. SQLite dump/backup do not contain the marker excerpt. Native archives include the operator guide.
+
+Excerpt delivery is best effort and ephemeral. Lost provider acknowledgement can duplicate already-posted text; external in-flight or posted messages require operator deletion. Extreme overlong context windows can be omitted with metadata drops while persisted counts remain correct. Speech-recognition accuracy limitations from the preceding qualification PR remain unchanged.

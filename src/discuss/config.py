@@ -121,6 +121,7 @@ class Leaderboards(Model):
 
 class Privacy(Model):
     notice_acknowledged: bool = False
+    context_reporting_acknowledged: bool = False
     excluded_member_ids: list[Snowflake] = Field(default_factory=list)
     listening_notice: str = Field(
         default="DisCuss processes voice locally for profanity standings; audio and full "
@@ -129,6 +130,23 @@ class Privacy(Model):
         min_length=20,
         max_length=1000,
     )
+
+
+class DetectionReporting(Model):
+    enabled: bool = False
+    channel_id: Snowflake | None = None
+    context_words_per_side: int = Field(default=3, ge=0, le=20)
+    interval_seconds: float = Field(default=0, ge=0, le=3600)
+    max_pending_instances: int = Field(default=1000, ge=1, le=4096)
+    max_pending_bytes: int = Field(default=1048576, ge=1024, le=4194304)
+    max_pending_age_seconds: float = Field(default=300, ge=1, le=3600)
+    max_pages_per_flush: int = Field(default=10, ge=1, le=50)
+
+    @model_validator(mode="after")
+    def age_covers_interval(self) -> Self:
+        if self.max_pending_age_seconds < self.interval_seconds:
+            raise ValueError("Detection queue age must cover the reporting interval")
+        return self
 
 
 class Server(Model):
@@ -143,11 +161,14 @@ class Server(Model):
     profanity: Profanity = Field(default_factory=Profanity)
     leaderboards: Leaderboards = Field(default_factory=Leaderboards)
     privacy: Privacy = Field(default_factory=Privacy)
+    detection_reporting: DetectionReporting = Field(default_factory=DetectionReporting)
 
     @model_validator(mode="after")
     def consistent_policy(self) -> Self:
         if self.monitoring_enabled and not self.privacy.notice_acknowledged:
             raise ValueError("Acknowledge a visible processing notice before enabling monitoring")
+        if self.detection_reporting.enabled and not self.privacy.context_reporting_acknowledged:
+            raise ValueError("Acknowledge contextual excerpt publication before enabling detection reporting")
         if len(set(self.voice_channels)) != len(self.voice_channels):
             raise ValueError("Eligible voice channels must be unique")
         if self.mode == "head_hunt":

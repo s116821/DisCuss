@@ -27,6 +27,8 @@ class Listener(Protocol):
     async def release(self, server: str) -> None: ...
     async def notice(self, server: Server) -> None: ...
     async def publish(self, server: Server, page: str, period: str, index: int) -> str: ...
+    async def publish_detections(self, server: Server, page: str) -> str: ...
+    def speaker_name(self, server: str, member: str) -> str: ...
     async def close(self) -> None: ...
     async def reconfigure(self, config: Config) -> None: ...
 
@@ -53,6 +55,13 @@ class Coordinator:
         self._report_retry: dict[str, float] = {}
         self.errors: dict[str, str] = {}
         self._lock = asyncio.Lock()
+        self.pipeline.detection_feed.bind(
+            lambda server, page: self.listeners[server.primary_bot].publish_detections(server, page),
+            lambda server, member: self.listeners[
+                next(s.primary_bot for s in self.config.servers if s.server_id == server)
+            ].speaker_name(server, member),
+            lambda server: self.listeners[server.primary_bot].ready(server.server_id),
+        )
 
     def _channels(self, worker: Listener, server: Server) -> list[ChannelPresence]:
         return [
@@ -84,6 +93,7 @@ class Coordinator:
             for server in self.config.servers:
                 self.pipeline.discard(server.server_id)
             self.config = self.pipeline.config = config
+            self.pipeline.detection_feed.reconfigure(config)
             await asyncio.gather(*(worker.reconfigure(config) for worker in self.listeners.values()))
             self._hunt_due.clear()
             self._selected.clear()
@@ -105,6 +115,7 @@ class Coordinator:
                 await self.report_tick(now, monotonic)
 
     async def report_tick(self, now: datetime, monotonic: float) -> None:
+        self.pipeline.detection_feed.tick()
         # Report/segmentation timers can run while a voice connection awaits its handshake.
         for segmenter in self.pipeline.segmenters:
             segmenter.expire(now)
@@ -231,6 +242,7 @@ class Coordinator:
             self.errors[server.server_id] = "Report delivery pending; primary identity will retry"
 
     async def close(self, now: datetime) -> None:
+        await self.pipeline.detection_feed.close()
         for server in self.config.servers:
             for worker in self.listeners.values():
                 self.store.monitor(worker.name, server.server_id, "0", [], now, healthy=False)
