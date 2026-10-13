@@ -2,7 +2,9 @@
 
 Self-hosted Discord voice profanity competition, with one Python process coordinating one or multiple separately authorized bot identities.
 
-**Current status: engineering foundation.** The coordinator, receiver integration and native installers are not yet implemented. Deployment archives are scaffolds. No functional release is qualified. Follow the DisCuss Linear project (DEG-1 and dependent issues).
+**Current status: offline policy and statistics core.** Typed protected configuration, Head Hunt affinity/Fixed Channel policy, encoded dictionaries, idempotent SQLite events/exposure, calendar rankings, report outbox and retention are implemented. Discord/STT runtime adapters and native installers remain separate work; deployment archives are scaffolds and no functional release is qualified.
+
+See [configuration](docs/configuration.md), [statistics/operations](docs/statistics.md) and [privacy](docs/privacy.md). Run `discuss --config PATH doctor` for offline setup preflight. The example JSON intentionally contains placeholder setup; never put real credentials in the repository. Canonical tracking is the DisCuss Linear roadmap.
 
 ## Development
 
