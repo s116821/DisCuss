@@ -1,0 +1,29 @@
+{
+  "fixture": "synthetic-or-consented-local-input",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "model_id": "Systran/faster-whisper-small",
+  "revision": "536b0662742c02347bc0e980a01041f333bce120",
+  "device": "cpu",
+  "compute_type": "int8",
+  "cpu_threads": 2,
+  "audio_seconds": 6.028854166666667,
+  "model_load_seconds": 2.240983000025153,
+  "peak_resident_bytes": 682135552,
+  "python_process_id": 31836,
+  "inference_subprocesses": 0,
+  "runs": [
+    {
+      "inference_seconds": 3.286856400081888,
+      "matches": 2
+    },
+    {
+      "inference_seconds": 3.0093048999551684,
+      "matches": 2
+    },
+    {
+      "inference_seconds": 2.8035818999633193,
+      "matches": 2
+    }
+  ],
+  "limitations": "One controlled fixture; not live Discord, accent coverage or general listener capacity."
+}

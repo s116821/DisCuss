@@ -165,11 +165,36 @@ class Server(Model):
         return self
 
 
+class Transcription(Model):
+    model_id: Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")] = (
+        "Systran/faster-whisper-small"
+    )
+    revision: Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{40}$")] = "536b0662742c02347bc0e980a01041f333bce120"
+    device: Literal["cpu", "cuda"] = "cpu"
+    compute_type: Literal["int8", "float16", "int8_float16", "float32"] = "int8"
+    cpu_threads: int = Field(default=2, ge=1, le=64)
+    language: str | None = "en"
+    max_queue: int = Field(default=8, ge=1, le=128)
+    max_speakers: int = Field(default=64, ge=1, le=128)
+    max_buffer_bytes: int = Field(default=16777216, ge=192000, le=268435456)
+    max_chunk_seconds: float = Field(default=12, ge=0.1, le=30)
+    minimum_chunk_seconds: float = Field(default=0.15, ge=0.02, le=2)
+    silence_seconds: float = Field(default=0.5, ge=0.1, le=5)
+    vad_threshold: float = Field(default=0.003, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def chunk_limits(self) -> Self:
+        if self.minimum_chunk_seconds > self.max_chunk_seconds:
+            raise ValueError("Minimum speech chunk duration exceeds maximum")
+        return self
+
+
 class Config(Model):
     schema_version: Literal[1] = 1
     bots: list[Bot] = Field(min_length=1, max_length=128)
     servers: list[Server] = Field(min_length=1, max_length=1000)
     state_dir: str = Field(default="state", min_length=1)
+    transcription: Transcription = Field(default_factory=Transcription)
 
     @model_validator(mode="after")
     def identities(self) -> Self:
@@ -205,7 +230,17 @@ def validate_config(text: str) -> Config:
 def check_private_file(path: Path) -> None:
     if os.name == "nt":
         script = Path(__file__).with_name("check_acl.ps1")
-        result = subprocess.run(["pwsh", "-File", str(script), str(path)], capture_output=True)
+        # Use the Windows-provided shell for this read-only ACL query; runtime
+        # installation must not require a separate PowerShell 7 installation.
+        shell = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+        code = script.read_text(encoding="utf-8").replace("param([string] $Path)", "$Path = $env:DISCUSS_ACL_PATH", 1)
+        # A PowerShell 7 parent can pass its module path to Windows PowerShell.
+        # Load the OS shell's own security module explicitly instead.
+        security = shell.parent / "Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1"
+        code = "Import-Module -Name $env:DISCUSS_ACL_MODULE -ErrorAction Stop\n" + code
+        environment = dict(os.environ, DISCUSS_ACL_PATH=str(path.resolve()))
+        environment["DISCUSS_ACL_MODULE"] = str(security)
+        result = subprocess.run([str(shell), "-Command", code], env=environment, capture_output=True)
         if result.returncode != 0:
             raise ConfigError("Restrict local file NTFS read access to the runtime identity, SYSTEM and administrators")
     elif path.stat().st_mode & 0o077:
