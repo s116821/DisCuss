@@ -511,12 +511,12 @@ voice = [
 [[package]]
 name = "discord-voice-reception"
 version = "0.0.0"
-source = { url = "https://github.com/s116821/DiscordVoiceReception/archive/823f586d0c8504b5b808d60dfc6ef8667b23be18.tar.gz" }
+source = { url = "https://github.com/s116821/DiscordVoiceReception/archive/b68549dd0b45435d7e7e12de5fd6e0982d107e86.tar.gz" }
 dependencies = [
     { name = "davey" },
     { name = "discord-py", extra = ["voice"] },
 ]
-sdist = { hash = "sha256:87cad464e36388b31b230be7550e013e42ddd700b8b6a5177783cdd47fca8e15" }
+sdist = { hash = "sha256:a24931fd1c3dda53eb54282df8098cecd664ed00b86c9a64ea432be61198c2c8" }
 
 [package.metadata]
 requires-dist = [
@@ -552,7 +552,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "discord-voice-reception", marker = "extra == 'runtime'", url = "https://github.com/s116821/DiscordVoiceReception/archive/823f586d0c8504b5b808d60dfc6ef8667b23be18.tar.gz" },
+    { name = "discord-voice-reception", marker = "extra == 'runtime'", url = "https://github.com/s116821/DiscordVoiceReception/archive/b68549dd0b45435d7e7e12de5fd6e0982d107e86.tar.gz" },
     { name = "faster-whisper", marker = "extra == 'runtime'", specifier = "==1.2.1" },
     { name = "filelock", marker = "extra == 'runtime'", specifier = ">=3.20" },
     { name = "numpy", marker = "extra == 'runtime'", specifier = ">=2.0" },
