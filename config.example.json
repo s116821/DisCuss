@@ -48,7 +48,18 @@
       "privacy": {
         "notice_acknowledged": false,
         "excluded_member_ids": [],
-        "listening_notice": "DisCuss processes voice locally for profanity standings; audio and full transcripts are discarded. Use opt-out or ask an administrator to disable monitoring or delete your local data."
+        "listening_notice": "DisCuss counts voice profanity locally; audio/transcripts are discarded; /discuss opt_out or opt_in controls your participation.",
+        "context_reporting_acknowledged": false
+      },
+      "detection_reporting": {
+        "enabled": false,
+        "channel_id": null,
+        "context_words_per_side": 3,
+        "interval_seconds": 0.0,
+        "max_pending_instances": 1000,
+        "max_pending_bytes": 1048576,
+        "max_pending_age_seconds": 300.0,
+        "max_pages_per_flush": 10
       }
     }
   ],

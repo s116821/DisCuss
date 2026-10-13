@@ -148,7 +148,12 @@ def _execute(args: argparse.Namespace) -> int:
                 print("Local member data deleted; previously posted Discord messages require operator removal.")
             else:
                 window = window_at(datetime.now(UTC), server.leaderboards.timezone, args.period)
-                for page in render(window, standings(store, server.server_id, window, server.leaderboards)):
+                for page in render(
+                    window,
+                    standings(store, server.server_id, window, server.leaderboards),
+                    timezone=server.leaderboards.timezone,
+                    show_scaled=server.leaderboards.scaled.enabled,
+                ):
                     print(page)
         return 0
     finally:

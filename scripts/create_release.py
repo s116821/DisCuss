@@ -72,7 +72,7 @@ def assemble(root: Path, output: Path, tag: str, *, allow_development: bool = Fa
                     shutil.copy2(root / name, staging / name)
                 for name in ("INSTALL.md", "install.sh", "install.ps1", "manage_state.py"):
                     shutil.copy2(root / "deploy" / name, staging / name)
-                for name in ("configuration.md", "statistics.md", "privacy.md", "runtime.md"):
+                for name in ("configuration.md", "statistics.md", "privacy.md", "runtime.md", "detection-reporting.md"):
                     shutil.copy2(root / "docs" / name, staging / name)
                 manifest = {
                     "tag": tag,

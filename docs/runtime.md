@@ -32,7 +32,7 @@ PCM and transcripts exist only in memory. Each member/channel has an amplitude V
 
 ## Commands and privacy
 
-`/discuss standings` and `words` select day/week/month/year (week default). Replies are ephemeral, paginated, and disable mentions. `opt_out` stops future collection and discards queued/active buffers. `opt_in` clears the preference subject to server policy. `delete_self` removes local statistics and retains only an opt-out preference. An administrator can use `monitoring` and `status`; unauthorized requests cannot alter monitoring. Previously published messages and external backups need operator cleanup. See privacy.md and statistics.md for retention, reporting ambiguity and deletion limits.
+`/discuss standings` selects day/week/month/year (week default) and shows total/rate summaries. `/discuss words` requires selecting a member by name and is the only per-word breakdown. Replies are ephemeral, paginated, and disable mentions. Member/channel/server/bot names identify Discord output; missing entities use neutral labels. `opt_out` stops only your future collection and discards queued/active buffers. `opt_in` clears your preference subject to server policy. `delete_self` removes your local statistics and retains only an opt-out preference. An administrator can use `monitoring` and `status`; unauthorized requests cannot alter monitoring. Previously published messages and external backups need operator cleanup. See privacy.md and statistics.md for retention, reporting ambiguity and deletion limits.
 
 ## Evidence and limits
 

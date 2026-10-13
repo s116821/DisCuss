@@ -153,9 +153,9 @@ def test_render_pages_delete_backup_and_all_disabled_retention(tmp_path: Path) -
     for member in range(1, 101):
         db.ingest("1", str(member), "10", "chunk", when, "violet", lexicon)
     window = window_at(when, "UTC", "day")
-    pages = render(window, standings(db, "1", window, Leaderboards()), limit=512)
+    pages = render(window, standings(db, "1", window, Leaderboards()), member_name=lambda m: "Player-" + m, limit=512)
     assert len(pages) > 1 and all(len(p) <= 512 for p in pages)
-    assert "Member 100" in "\n".join(pages)
+    assert "Player-100" in "\n".join(pages) and "Member 100" not in "\n".join(pages)
     backup = tmp_path / "backup.sqlite3"
     db.backup(backup)
     with sqlite3.connect(backup) as copy:

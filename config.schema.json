@@ -54,6 +54,73 @@
       "title": "Cadences",
       "type": "object"
     },
+    "DetectionReporting": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "channel_id": {
+          "anyOf": [
+            {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel Id"
+        },
+        "context_words_per_side": {
+          "default": 3,
+          "maximum": 20,
+          "minimum": 0,
+          "title": "Context Words Per Side",
+          "type": "integer"
+        },
+        "interval_seconds": {
+          "default": 0,
+          "maximum": 3600,
+          "minimum": 0,
+          "title": "Interval Seconds",
+          "type": "number"
+        },
+        "max_pending_instances": {
+          "default": 1000,
+          "maximum": 4096,
+          "minimum": 1,
+          "title": "Max Pending Instances",
+          "type": "integer"
+        },
+        "max_pending_bytes": {
+          "default": 1048576,
+          "maximum": 4194304,
+          "minimum": 1024,
+          "title": "Max Pending Bytes",
+          "type": "integer"
+        },
+        "max_pending_age_seconds": {
+          "default": 300,
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Max Pending Age Seconds",
+          "type": "number"
+        },
+        "max_pages_per_flush": {
+          "default": 10,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Max Pages Per Flush",
+          "type": "integer"
+        }
+      },
+      "title": "DetectionReporting",
+      "type": "object"
+    },
     "FixedAssignment": {
       "additionalProperties": false,
       "properties": {
@@ -166,6 +233,11 @@
           "title": "Notice Acknowledged",
           "type": "boolean"
         },
+        "context_reporting_acknowledged": {
+          "default": false,
+          "title": "Context Reporting Acknowledged",
+          "type": "boolean"
+        },
         "excluded_member_ids": {
           "items": {
             "pattern": "^[1-9][0-9]{0,19}$",
@@ -175,7 +247,7 @@
           "type": "array"
         },
         "listening_notice": {
-          "default": "DisCuss processes voice locally for profanity standings; audio and full transcripts are discarded. Use opt-out or ask an administrator to disable monitoring or delete your local data.",
+          "default": "DisCuss counts voice profanity locally; audio/transcripts are discarded; /discuss opt_out or opt_in controls your participation.",
           "maxLength": 1000,
           "minLength": 20,
           "title": "Listening Notice",
@@ -282,6 +354,9 @@
         },
         "privacy": {
           "$ref": "#/$defs/Privacy"
+        },
+        "detection_reporting": {
+          "$ref": "#/$defs/DetectionReporting"
         }
       },
       "required": [

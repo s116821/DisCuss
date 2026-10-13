@@ -19,6 +19,7 @@ import av
 import numpy as np
 
 from .config import Config, Transcription
+from .detection_reporting import DetectionFeed
 from .lexicon import Lexicon, tokens
 from .models import verify_model
 from .storage import Store
@@ -201,6 +202,7 @@ class Segmenter:
 class SpeechPipeline:
     def __init__(self, config: Config, store: Store, transcriber: Transcriber) -> None:
         self.config, self.store, self.transcriber = config, store, transcriber
+        self.detection_feed = DetectionFeed(config, store, self.allowed)
         self.queue: deque[SpeechChunk] = deque()
         self.segmenters: set[Segmenter] = set()
         self._event = asyncio.Event()
@@ -260,6 +262,7 @@ class SpeechPipeline:
         return PipelineSink(self, segmenter)
 
     def discard(self, server: str, member: str | None = None) -> None:
+        self.detection_feed.discard(server, member)
         if (
             self._active is not None
             and self._active.server_id == server
@@ -298,7 +301,7 @@ class SpeechPipeline:
                 ]
                 match_times = [token_times[m.token_start] for m in matches]
                 if chunk.chunk_id not in self._discarded and self.allowed(chunk.server_id, chunk.member_id):
-                    self.store.ingest(
+                    added = self.store.ingest(
                         chunk.server_id,
                         chunk.member_id,
                         chunk.channel_id,
@@ -308,6 +311,19 @@ class SpeechPipeline:
                         lexicon,
                         detection_times=match_times,
                     )
+                    if added:
+                        try:
+                            self.detection_feed.offer(
+                                chunk.server_id,
+                                chunk.channel_id,
+                                chunk.member_id,
+                                chunk.chunk_id,
+                                text,
+                                matches,
+                                match_times,
+                            )
+                        except Exception:
+                            self.detection_feed.failures += 1
                 self.processed += 1
                 self._failed = False
             except Exception:
@@ -321,6 +337,7 @@ class SpeechPipeline:
 
     async def close(self) -> None:
         self._closing = True
+        await self.detection_feed.close()
         self.queue.clear()
         for segmenter in self.segmenters:
             segmenter.buffers.clear()

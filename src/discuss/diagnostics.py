@@ -22,6 +22,11 @@ def write_health(root: Path, coordinator: Coordinator, *, running: bool = True) 
         "processed_chunks": pipeline.processed,
         "dropped_chunks": pipeline.dropped,
         "speech_failures": pipeline.failures,
+        "detection_pending_instances": len(pipeline.detection_feed.pending),
+        "detection_pending_bytes": pipeline.detection_feed.pending_bytes,
+        "detection_dropped": pipeline.detection_feed.dropped,
+        "detection_expired": pipeline.detection_feed.expired,
+        "detection_delivery_failures": pipeline.detection_feed.failures,
         "servers": [
             {
                 "server_id": server.server_id,
