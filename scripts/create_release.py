@@ -16,9 +16,9 @@ from pathlib import Path
 from packaging.version import Version
 
 try:
-    from scripts.check_release_ready import receiver_pin
+    from scripts.receiver_dependency import receiver_dependency
 except ModuleNotFoundError:
-    from check_release_ready import receiver_pin
+    from receiver_dependency import receiver_dependency
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,7 +45,7 @@ def artifact_version(path: Path) -> str:
     return value
 
 
-def assemble(root: Path, output: Path, tag: str, *, allow_development: bool = False) -> list[Path]:
+def assemble(root: Path, output: Path, tag: str) -> list[Path]:
     if not tag.startswith("v") or str(Version(tag[1:])) != tag[1:]:
         raise ValueError("Release tag must be v followed by the canonical package version")
     wheels = list(output.glob("*.whl"))
@@ -58,12 +58,7 @@ def assemble(root: Path, output: Path, tag: str, *, allow_development: bool = Fa
     project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
     assets = wheels + sources
     if project == "discuss":
-        try:
-            receiver = receiver_pin(root)
-        except ValueError:
-            if not allow_development:
-                raise
-            receiver = "development-source"
+        receiver, requires_build = receiver_dependency(root)
         for platform, suffix in (("windows-x64", "zip"), ("linux-x64", "gztar")):
             with tempfile.TemporaryDirectory() as directory:
                 staging = Path(directory)
@@ -72,7 +67,14 @@ def assemble(root: Path, output: Path, tag: str, *, allow_development: bool = Fa
                     shutil.copy2(root / name, staging / name)
                 for name in ("INSTALL.md", "install.sh", "install.ps1", "manage_state.py"):
                     shutil.copy2(root / "deploy" / name, staging / name)
-                for name in ("configuration.md", "statistics.md", "privacy.md", "runtime.md", "detection-reporting.md"):
+                for name in (
+                    "configuration.md",
+                    "statistics.md",
+                    "privacy.md",
+                    "runtime.md",
+                    "detection-reporting.md",
+                    "qualification-status.md",
+                ):
                     shutil.copy2(root / "docs" / name, staging / name)
                 manifest = {
                     "tag": tag,
@@ -81,7 +83,7 @@ def assemble(root: Path, output: Path, tag: str, *, allow_development: bool = Fa
                     "python": "3.12.15",
                     "uv": "0.13.0",
                     "receiver": receiver,
-                    "qualified_dependency": receiver != "development-source",
+                    "receiver_requires_build": requires_build,
                     "files": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in staging.iterdir()},
                 }
                 (staging / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -104,9 +106,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--output", type=Path, default=ROOT / "dist")
-    parser.add_argument("--allow-development", action="store_true", help="Offline CI only; never publish these assets")
     args = parser.parse_args()
-    for path in assemble(ROOT, args.output.resolve(), args.tag, allow_development=args.allow_development):
+    for path in assemble(ROOT, args.output.resolve(), args.tag):
         print(path.name)
 
 

@@ -24,7 +24,6 @@ def smoke(
     second_upgrade: Path | None = None,
     *,
     tag: str = "v1.2.3",
-    development: bool = True,
 ) -> None:
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise RuntimeError("Privileged smoke is restricted to disposable GitHub-hosted runners")
@@ -64,12 +63,8 @@ def smoke(
                     "-Operation",
                     operation,
                 ]
-                if development:
-                    args.append("-AllowDevelopment")
             else:
                 args = ["sudo", "bash", str(bundle / "install.sh"), "--root", str(root), "--operation", operation]
-                if development:
-                    args.append("--allow-development")
             if fail:
                 assert subprocess.run(args).returncode != 0
             else:
@@ -156,12 +151,10 @@ if __name__ == "__main__":
     parser.add_argument("--upgrade", type=Path)
     parser.add_argument("--second-upgrade", type=Path)
     parser.add_argument("--tag", default="v1.2.3")
-    parser.add_argument("--qualified", action="store_true")
     args = parser.parse_args()
     smoke(
         args.assets.resolve(),
         args.upgrade.resolve() if args.upgrade else None,
         args.second_upgrade.resolve() if args.second_upgrade else None,
         tag=args.tag,
-        development=not args.qualified,
     )

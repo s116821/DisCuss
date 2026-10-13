@@ -27,8 +27,6 @@ jobs:
         with:
           version: "0.13.0"
       - run: uv sync --locked --all-groups
-      - name: Qualified stable PyPI receiver preflight (before creating a tag)
-        run: uv run python scripts/check_release_ready.py
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -92,10 +90,11 @@ jobs:
         env:
           RELEASE_TAG: ${{ needs.release.outputs.tag }}
         shell: pwsh
-        run: uv run python -m scripts.smoke_native dist --tag $env:RELEASE_TAG --qualified
+        run: uv run python -m scripts.smoke_native dist --tag $env:RELEASE_TAG
 
   publish:
     needs: [release, build, smoke]
+    if: needs.release.outputs.tag != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

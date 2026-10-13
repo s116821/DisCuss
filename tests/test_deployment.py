@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from deploy.manage_state import backup, copy_database, restore, verify_bundle
-from scripts.check_release_ready import receiver_pin
+from scripts.receiver_dependency import receiver_dependency
 
 
 def test_backup_includes_wal_without_migrating_and_restore_replaces_pages(tmp_path: Path) -> None:
@@ -40,35 +40,41 @@ def test_backup_includes_wal_without_migrating_and_restore_replaces_pages(tmp_pa
         copy_database(path, snapshot / path.name)
 
 
-def test_corrupt_or_unqualified_bundle_is_rejected(tmp_path: Path) -> None:
+def test_development_bundle_installs_normally_and_corruption_is_rejected(tmp_path: Path) -> None:
     payload = tmp_path / "payload.whl"
     payload.write_bytes(b"fixture")
     manifest = {
         "tag": "v1.2.3",
         "version": "1.2.3",
-        "qualified_dependency": False,
+        "receiver_requires_build": True,
         "files": {payload.name: hashlib.sha256(payload.read_bytes()).hexdigest()},
     }
     (tmp_path / "manifest.json").write_text(json.dumps(manifest))
-    with pytest.raises(ValueError, match="Development"):
-        verify_bundle(tmp_path)
-    assert verify_bundle(tmp_path, allow_development=True)["version"] == "1.2.3"
+    assert verify_bundle(tmp_path)["version"] == "1.2.3"
     payload.write_bytes(b"tampered")
     with pytest.raises(ValueError, match="integrity"):
-        verify_bundle(tmp_path, allow_development=True)
+        verify_bundle(tmp_path)
 
 
-def test_release_rejects_source_and_nonstable_receiver_pins(tmp_path: Path) -> None:
+def test_release_records_exact_sources_and_rejects_mutable_dependencies(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
-    with pytest.raises(ValueError, match="development source"):
-        receiver_pin(root)
-    for version in ("1.0.0rc1", "1.0.0.dev1", "0.0.0", "1.0.0+local", "1.*"):
+    source, build = receiver_dependency(root)
+    assert "b68549dd0b45435d7e7e12de5fd6e0982d107e86" in source and build
+    for version in ("1.0.0rc1", "1.0.0.dev1", "1.2.3"):
         (tmp_path / "pyproject.toml").write_text(
             '[project.optional-dependencies]\nruntime=["discord-voice-reception==' + version + '"]'
         )
-        with pytest.raises(ValueError):
-            receiver_pin(tmp_path)
+        assert receiver_dependency(tmp_path) == (version, False)
     (tmp_path / "pyproject.toml").write_text(
-        '[project.optional-dependencies]\nruntime=["discord-voice-reception==1.2.3"]'
+        '[project.optional-dependencies]\nruntime=["discord-voice-reception>=1.2.3"]'
     )
-    assert receiver_pin(tmp_path) == "1.2.3"
+    with pytest.raises(ValueError, match="exact"):
+        receiver_dependency(tmp_path)
+    for revision in ("main", "v1.2.3", "b68549dd"):
+        (tmp_path / "pyproject.toml").write_text(
+            '[project.optional-dependencies]\nruntime=["discord-voice-reception==0.0.0"]\n'
+            '[tool.uv.sources]\ndiscord-voice-reception={url="https://github.com/s116821/'
+            f'DiscordVoiceReception/archive/{revision}.tar.gz"}}'
+        )
+        with pytest.raises(ValueError, match="immutable"):
+            receiver_dependency(tmp_path)

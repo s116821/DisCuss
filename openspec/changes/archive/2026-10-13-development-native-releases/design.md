@@ -1,0 +1,3 @@
+# Design
+
+Main quality remains the release prerequisite; semantic-release remains the only version/classification authority. No RELEASE_READY or PYPI_PUBLISH_READY variables are consulted. Published native bundles accept immutable development receiver archives and record exact source provenance; checksums, metadata checks and both-OS extracted installer smoke remain mandatory. PyPI uses a standalone workflow after successful CI, consuming the original immutable distribution artifact, with a manual CI-run retry for publisher setup failures. Qualification results describe evidence rather than block development releases. Historical delta supersession is explicit and replacements are checked.

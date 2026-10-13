@@ -41,6 +41,39 @@ def problems(root: Path, changed_archives: set[str] | None = None) -> list[str]:
     archives = sorted(p for p in archive_root.iterdir() if p.is_dir()) if archive_root.exists() else []
     if not archives:
         errors.append("No completed change archive exists")
+    superseded: set[tuple[str, Path, str]] = set()
+    replacement_edges: dict[str, str] = {}
+    for archive in archives:
+        metadata = archive / ".openspec.yaml"
+        text = metadata.read_text(encoding="utf-8") if metadata.exists() else ""
+        supplemental = archive / "supersedes.yaml"
+        if supplemental.exists():
+            text += "\n" + supplemental.read_text(encoding="utf-8")
+        replaces = re.search(r"(?m)^supersedes: ([a-z0-9-]+)\s*$", text)
+        if not replaces:
+            continue
+        previous = replaces.group(1)
+        if previous == archive.name or previous not in {a.name for a in archives}:
+            errors.append(f"{archive.name}: invalid superseded archive: {previous}")
+            continue
+        replacement_edges[archive.name] = previous
+        # Only a delta in the checked scope may replace an earlier checked delta.
+        if changed_archives is not None and archive.name not in changed_archives:
+            continue
+        for delta in (archive / "specs").rglob("spec.md"):
+            capability = delta.relative_to(archive / "specs")
+            for section in re.split(r"(?m)^## ", delta.read_text(encoding="utf-8"))[1:]:
+                if section.splitlines()[0].strip() in {"MODIFIED Requirements", "REMOVED Requirements"}:
+                    superseded.update((previous, capability, name) for name in blocks(section))
+    for start in replacement_edges:
+        seen: set[str] = set()
+        current_archive = start
+        while current_archive in replacement_edges:
+            if current_archive in seen:
+                errors.append(f"{start}: cyclic archive supersession")
+                break
+            seen.add(current_archive)
+            current_archive = replacement_edges[current_archive]
     for archive in archives:
         for name in ("proposal.md", "design.md", "tasks.md", "verification.md", ".openspec.yaml"):
             if not (archive / name).is_file():
@@ -64,6 +97,8 @@ def problems(root: Path, changed_archives: set[str] | None = None) -> list[str]:
                 if operation not in {"ADDED Requirements", "MODIFIED Requirements", "REMOVED Requirements"}:
                     continue
                 for name, content in blocks(section).items():
+                    if (archive.name, capability, name) in superseded:
+                        continue
                     if operation == "REMOVED Requirements":
                         if name in current:
                             errors.append(f"{archive.name}/{capability}: removed requirement still exists: {name}")

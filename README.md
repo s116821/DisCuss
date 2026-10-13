@@ -37,9 +37,9 @@ Use scoped Conventional Commit PR titles, e.g. `feat(receiver): add audio sinks`
 
 Git tags are the sole version source. Hatchling and uv-dynamic-versioning derive PEP 440 metadata; the runtime version helper reads importlib.metadata and falls back to 0.0.0. There is no editable version constant. The configured semantic-release 25 analyzer owns classification: breaking changes major, feats minor, configured maintenance patch, documentation alone no release.
 
-Successful main-branch quality calls the reusable release workflow only when the repository variable `RELEASE_READY=true` has been set **after functional qualification**. Leave it unset for this foundation. The workflow creates the tag, builds from that tag, validates metadata, attaches SHA-256 checksums and GitHub artifact attestations in the same run. It does not depend on GITHUB_TOKEN tag events launching a separate workflow.
+Every successful main-branch quality run automatically calls the reusable release workflow. Release-worthy development merges publish without readiness switches; docs-only changes do not release. The workflow creates the tag, builds from that tag, validates metadata, attaches SHA-256 checksums and GitHub artifact attestations in the same run. It does not depend on GITHUB_TOKEN tag events launching a separate workflow.
 
-DisCuss GitHub Releases are the canonical application distribution. Lean OS archives contain the wheel, hashed dependencies, native installer/recovery helper, manifest, config example and operator guides. Models stay in external state. The release workflow checks the stable PyPI receiver pin before tagging, then smoke tests the exact extracted assets on both OSes before attesting/uploading them. No managed hosting is planned.
+DisCuss GitHub Releases are the canonical application distribution. Lean OS archives contain the wheel, hashed dependencies, native installer/recovery helper, manifest, config example and operator guides. Models stay in external state. The release workflow records the exact receiver dependency, including an immutable development source when configured, and smoke tests the exact extracted assets on both OSes before attesting/uploading them. No managed hosting is planned.
 
 ## Provenance and license
 

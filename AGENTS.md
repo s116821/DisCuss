@@ -8,7 +8,7 @@ Almost all substantive behavior changes require a repo-local OpenSpec change. Co
 
 ## Quality and release
 
-Run npm ci, uv sync --locked --all-groups, uv run ruff check ., uv run ruff format --check ., uv run ty check, uv run pytest, npm run test:release, npm run spec:validate and uv run python scripts/check_openspec.py. Git tags are the sole version source; no static version field or duplicate commit classifier. Preserve the actual semantic-release analyzer. Release only after successful main quality gates and explicit qualification readiness.
+Run npm ci, uv sync --locked --all-groups, uv run ruff check ., uv run ruff format --check ., uv run ty check, uv run pytest, npm run test:release, npm run spec:validate and uv run python scripts/check_openspec.py. Git tags are the sole version source; no static version field or duplicate commit classifier. Preserve the actual semantic-release analyzer. Evaluate and publish releases automatically after successful main quality gates; document live/reboot qualification separately without readiness switches.
 
 ## Safety and terminology
 

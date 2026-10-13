@@ -59,3 +59,41 @@ def test_old_archives_can_be_superseded(tmp_path: Path) -> None:
     fixture(tmp_path)
     (tmp_path / "openspec/specs/example/spec.md").write_text("newer requirement", encoding="utf-8")
     assert problems(tmp_path, changed_archives=set()) == []
+
+
+def test_explicit_same_pr_supersession_checks_replacement(tmp_path: Path) -> None:
+    previous = fixture(tmp_path)
+    replacement = previous.with_name("2026-10-13-replacement")
+    replacement.mkdir()
+    for name in ("proposal.md", "design.md", "tasks.md", "verification.md"):
+        (replacement / name).write_text((previous / name).read_text())
+    (replacement / ".openspec.yaml").write_text(f"supersedes: {previous.name}\n")
+    delta = replacement / "specs/example/spec.md"
+    delta.parent.mkdir(parents=True)
+    content = (
+        (previous / "specs/example/spec.md")
+        .read_text()
+        .replace("ADDED", "MODIFIED")
+        .replace("SHALL work", "SHALL discover")
+    )
+    delta.write_text(content)
+    canonical = tmp_path / "openspec/specs/example/spec.md"
+    canonical.write_text(content)
+    changed = {previous.name, replacement.name}
+    assert problems(tmp_path, changed) == []
+    (replacement / ".openspec.yaml").write_text("")
+    (replacement / "supersedes.yaml").write_text(f"supersedes: {previous.name}\n")
+    assert problems(tmp_path, changed) == []
+    canonical.write_text("## Requirements\n")
+    assert any("replacement" in error and "unsynchronized" in error for error in problems(tmp_path, changed))
+    assert any("unsynchronized" in error for error in problems(tmp_path, {previous.name}))
+    (previous / ".openspec.yaml").write_text(f"supersedes: {replacement.name}\n")
+    canonical.write_text(content)
+    assert any("cyclic" in error for error in problems(tmp_path, changed))
+
+
+def test_supersession_must_reference_existing_different_archive(tmp_path: Path) -> None:
+    previous = fixture(tmp_path)
+    for name in ("nonexistent", previous.name):
+        (previous / ".openspec.yaml").write_text(f"supersedes: {name}\n")
+        assert any("invalid superseded" in error for error in problems(tmp_path))

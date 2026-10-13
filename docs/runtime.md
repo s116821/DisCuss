@@ -2,7 +2,7 @@
 
 The application owns one Python process, a shared SQLite store, one local Whisper model and a single bounded inference thread. Each separately authorized bot identity owns its own gateway/voice connections. One identity can join one channel per server, with independent assignments across servers. Fixed mode needs distinct bot applications for simultaneous channels within the same server. Do not use user tokens.
 
-Development requires `uv sync --locked --all-groups --extra runtime`. Linux additionally needs the distribution's `libopus0` package. The development receiver comes from immutable DiscordVoiceReception commit `b68549dd0b45435d7e7e12de5fd6e0982d107e86`, pending its qualified stable PyPI release; this dependency is **not a release-ready application pin**. discord.py 2.7.1 handles gateway/DAVE sessions; the receiver handles attributed bounded audio delivery. Live MLS/DAVE qualification remains outstanding.
+Development requires `uv sync --locked --all-groups --extra runtime`. Linux additionally needs the distribution's `libopus0` package. The receiver comes from immutable DiscordVoiceReception commit `b68549dd0b45435d7e7e12de5fd6e0982d107e86` while PyPI publication is being set up; releases record and install this exact source normally. discord.py 2.7.1 handles gateway/DAVE sessions; the receiver handles attributed bounded audio delivery. See qualification-status.md for live MLS/DAVE acceptance evidence.
 
 ## Protected setup
 
