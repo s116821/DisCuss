@@ -6,6 +6,8 @@ Self-hosted Discord voice profanity competition, with one Python process coordin
 
 See [configuration](docs/configuration.md), [statistics/operations](docs/statistics.md) and [privacy](docs/privacy.md). Run `discuss --config PATH doctor` for offline setup preflight. The example JSON intentionally contains placeholder setup; never put real credentials in the repository. Canonical tracking is the DisCuss Linear roadmap.
 
+[Broader synthetic measurements](docs/benchmarks/README.md) found missed detections and bounded overload. Recognition accuracy and sustained listener capacity remain unqualified; isolated successful clips cannot establish reliable competition counts.
+
 ## Development
 
 Install uv and Node.js 24, then run:

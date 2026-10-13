@@ -1,0 +1,112 @@
+{
+  "platform": "Windows-11-10.0.26300-SP0",
+  "model_id": "Systran/faster-whisper-small",
+  "revision": "536b0662742c02347bc0e980a01041f333bce120",
+  "device": "cpu",
+  "compute_type": "int8",
+  "cpu_threads": 2,
+  "model_load_seconds": 1.345531300175935,
+  "peak_resident_bytes": 655360000,
+  "python_process_id": 52532,
+  "inference_subprocesses": 0,
+  "recognition": [
+    {
+      "case": "short",
+      "audio_seconds": 1.3943333333333334,
+      "expected_matches": 1,
+      "observed_matches": 0,
+      "inference_seconds": 2.8624040000140667,
+      "real_time_factor": 2.0528835763906765
+    },
+    {
+      "case": "repeated",
+      "audio_seconds": 5.189,
+      "expected_matches": 3,
+      "observed_matches": 1,
+      "inference_seconds": 2.9486631001345813,
+      "real_time_factor": 0.5682526691336638
+    },
+    {
+      "case": "long",
+      "audio_seconds": 34.09741666666667,
+      "expected_matches": 20,
+      "observed_matches": 3,
+      "inference_seconds": 6.336838599992916,
+      "real_time_factor": 0.18584512316405932
+    },
+    {
+      "case": "silence",
+      "audio_seconds": 6.0,
+      "expected_matches": 0,
+      "observed_matches": 0,
+      "inference_seconds": 3.1752283999230713,
+      "real_time_factor": 0.5292047333205119
+    }
+  ],
+  "attributed_load": [
+    {
+      "offered_streams": 1,
+      "accepted_streams": 1,
+      "rejected_streams": 0,
+      "max_queue_observed": 1,
+      "queue_cap": 4,
+      "elapsed_seconds": 3.1386163998395205,
+      "processed": 1,
+      "failures": 0,
+      "detections_by_synthetic_member": {
+        "100": 1
+      },
+      "equivalent_audio_seconds_per_compute_second": 1.653276265384109
+    },
+    {
+      "offered_streams": 2,
+      "accepted_streams": 2,
+      "rejected_streams": 0,
+      "max_queue_observed": 2,
+      "queue_cap": 4,
+      "elapsed_seconds": 5.944254900095984,
+      "processed": 2,
+      "failures": 0,
+      "detections_by_synthetic_member": {
+        "100": 1,
+        "101": 1
+      },
+      "equivalent_audio_seconds_per_compute_second": 1.745887445007182
+    },
+    {
+      "offered_streams": 4,
+      "accepted_streams": 4,
+      "rejected_streams": 0,
+      "max_queue_observed": 4,
+      "queue_cap": 4,
+      "elapsed_seconds": 12.409445700002834,
+      "processed": 4,
+      "failures": 0,
+      "detections_by_synthetic_member": {
+        "100": 1,
+        "101": 1,
+        "102": 1,
+        "103": 1
+      },
+      "equivalent_audio_seconds_per_compute_second": 1.6725968670780564
+    },
+    {
+      "offered_streams": 8,
+      "accepted_streams": 4,
+      "rejected_streams": 4,
+      "max_queue_observed": 4,
+      "queue_cap": 4,
+      "elapsed_seconds": 12.106601899955422,
+      "processed": 4,
+      "failures": 0,
+      "detections_by_synthetic_member": {
+        "100": 1,
+        "101": 1,
+        "102": 1,
+        "103": 1
+      },
+      "equivalent_audio_seconds_per_compute_second": 1.7144364844503912
+    }
+  ],
+  "limitations": "Two artificial US-English voices; short session and burst load only. No real accents, acoustic mixture, GPU, sustained soak or live Discord qualification."
+}
