@@ -13,6 +13,7 @@ from discord_voice_reception import AudioFrame, VoiceRecvClient
 from .calendar import window_at
 from .config import Bot, Config, Server
 from .coordinator import Coordinator
+from .detection_reporting import notice
 from .policy import ChannelPresence, MemberPresence
 from .reporting import render, safe_word, standings
 from .speech import PipelineSink, SpeechPipeline
@@ -220,8 +221,25 @@ class DiscordListener:
 
     async def notice(self, server: Server) -> None:
         await self._report_channel(server).send(
-            server.privacy.listening_notice, allowed_mentions=discord.AllowedMentions.none()
+            notice(server), allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True
         )
+
+    def speaker_name(self, server: str, member: str) -> str:
+        instance = self.client.get_guild(int(server))
+        person = instance.get_member(int(member)) if instance else None
+        return person.display_name if person else "Member"
+
+    async def publish_detections(self, server: Server, page: str) -> str:
+        channel_id = server.detection_reporting.channel_id or server.report_channel_id
+        instance = self.client.get_guild(int(server.server_id))
+        channel = instance.get_channel(int(channel_id)) if instance else None
+        if not isinstance(channel, discord.TextChannel) or instance is None or instance.me is None:
+            raise ValueError("Configured detection channel is unavailable")
+        permissions = channel.permissions_for(instance.me)
+        if not permissions.view_channel or not permissions.send_messages:
+            raise ValueError("Primary bot lacks detection channel permissions")
+        message = await channel.send(page, allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True)
+        return str(message.id)
 
     async def publish(self, server: Server, page: str, period: str, index: int) -> str:
         message = await self._report_channel(server).send(page, allowed_mentions=discord.AllowedMentions.none())
@@ -341,6 +359,11 @@ class DiscordListener:
                 return
             coordinator = self.coordinator
             rows = [f"Server {server.server_id}; speech admission ready={self.pipeline.ready}"]
+            feed = self.pipeline.detection_feed
+            rows.append(
+                f"Detection feed: pending={sum(i.server == server.server_id for i in feed.pending)}, "
+                f"service drops={feed.dropped}, expired={feed.expired}, delivery failures={feed.failures}"
+            )
             if coordinator is not None:
                 rows.extend(
                     f"Identity {name}: channel={worker.current_channel(server.server_id)}, "
