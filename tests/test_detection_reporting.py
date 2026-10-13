@@ -180,11 +180,11 @@ def test_pagination_partial_retry_and_no_local_quote_storage(tmp_path: Path) -> 
             add(store, feed, str(number), member=str(100 + number), text="UNRELATEDMARKER violet **@everyone**")
         clock[0] = 60
         feed.tick()
-        await asyncio.sleep(0.02)
+        await asyncio.wait_for(feed.tasks["1"], 2)
         assert len(pages) == 1 and feed.failures == 1 and feed.pending
         clock[0] = 70
         feed.tick()
-        await asyncio.sleep(0.05)
+        await asyncio.wait_for(feed.tasks["1"], 2)
         assert len(pages) > 1 and all(units(page) <= 1900 for page in pages)
         assert sum(page.count(" — Member-") for page in pages) == 40
         assert attempts.count(pages[0]) == 1 and not feed.pending
