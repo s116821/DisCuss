@@ -15,12 +15,10 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def verify_bundle(root: Path, *, allow_development: bool = False) -> dict:
+def verify_bundle(root: Path) -> dict:
     manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8-sig"))
     if manifest["tag"] != "v" + manifest["version"]:
         raise ValueError("Manifest version/tag mismatch")
-    if not manifest["qualified_dependency"] and not allow_development:
-        raise ValueError("Development bundle cannot be installed without explicit offline development opt-in")
     for name, expected in manifest["files"].items():
         if Path(name).name != name or sha256(root / name) != expected:
             raise ValueError("Bundle file integrity failure")
@@ -65,13 +63,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=["verify", "backup", "restore"])
     parser.add_argument("--bundle", type=Path)
-    parser.add_argument("--allow-development", action="store_true")
     parser.add_argument("--config", type=Path)
     parser.add_argument("--state", type=Path)
     parser.add_argument("--snapshot", type=Path)
     args = parser.parse_args()
     if args.operation == "verify":
-        verify_bundle(args.bundle, allow_development=args.allow_development)
+        verify_bundle(args.bundle)
     elif args.operation == "backup":
         backup(args.config, args.state, args.snapshot)
     else:

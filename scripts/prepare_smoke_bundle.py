@@ -57,7 +57,7 @@ def prepare(output: Path, tag: str = "v1.2.3") -> None:
             check=True,
         )
         subprocess.run(["uv", "build", "--out-dir", str(output)], cwd=repo, check=True)
-        assemble(repo, output, tag, allow_development=True)
+        assemble(repo, output, tag)
 
 
 if __name__ == "__main__":

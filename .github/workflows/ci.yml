@@ -114,7 +114,7 @@ jobs:
 
   release:
     needs: [quality, native-smoke, synthetic-speech]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.RELEASE_READY == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
       issues: write

@@ -4,14 +4,12 @@ umask 077
 bundle=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 root=/opt/discuss
 operation=install
-allow_development=false
 plan=false
 provision_only=false
 while (($#)); do
     case "$1" in
         --root) root=$2; shift 2;;
         --operation) operation=$2; shift 2;;
-        --allow-development) allow_development=true; shift;;
         --plan) plan=true; shift;;
         --provision-only) provision_only=true; shift;;
         *) echo 'Unknown argument' >&2; exit 2;;
@@ -30,7 +28,6 @@ unit=/etc/systemd/system/discuss.service
 if [[ "$operation" == install ]]; then
     (cd "$bundle" && sha256sum --check --status BUNDLE_SHA256SUMS)
     grep -q '"platform": "linux-x64"' "$bundle/manifest.json" || exit 2
-    if ! $allow_development; then grep -q '"qualified_dependency": true' "$bundle/manifest.json" || { echo 'Unqualified development bundle' >&2; exit 2; }; fi
 fi
 if $plan; then
     printf 'operation=%s\nroot=%s\nidentity=discuss\nstartup=system-level systemd\npython=3.12.15\nstate=%s\n' "$operation" "$root" "$state"
@@ -110,9 +107,7 @@ else
     export UV_PYTHON_INSTALL_DIR=$root/python UV_CACHE_DIR=$root/cache UV_PYTHON_BIN_DIR=$root/tools/python-bin
     "$uv" python install 3.12.15
     bootstrap=$("$uv" python find --managed-python 3.12.15)
-    verify_args=()
-    $allow_development && verify_args+=(--allow-development)
-    "$bootstrap" "$bundle/manage_state.py" verify --bundle "$bundle" "${verify_args[@]}"
+    "$bootstrap" "$bundle/manage_state.py" verify --bundle "$bundle"
     version=$("$bootstrap" -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$bundle/manifest.json")
     [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.+-]*$ ]] || exit 2
     release=$root/releases/$version
@@ -123,7 +118,8 @@ else
     [[ -x "$python" ]] || "$uv" venv --managed-python --python 3.12.15 "$release/venv"
     if [[ -z "$current_python" && ( -f "$config" || -f "$state/statistics.sqlite3" ) ]]; then "$python" "$release/manage_state.py" backup --config "$config" --state "$state" --snapshot "$snapshot"; fi
     binary_args=()
-    if ! $allow_development; then binary_args+=(--only-binary :all:); fi
+    requires_build=$("$bootstrap" -c 'import json,sys; m=json.load(open(sys.argv[1])); print(m.get("receiver_requires_build", not m.get("qualified_dependency", False)))' "$bundle/manifest.json")
+    if [[ "$requires_build" != True ]]; then binary_args+=(--only-binary :all:); fi
     "$uv" pip install --python "$python" --require-hashes -r "$bundle/runtime-requirements.txt" "${binary_args[@]}"
     wheels=("$bundle"/*.whl)
     [[ ${#wheels[@]} == 1 ]] || exit 2

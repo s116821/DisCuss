@@ -4,7 +4,7 @@ param(
     [ValidateSet('Install','Rollback','Uninstall')][string] $Operation = 'Install',
     [string] $Root = (Join-Path $env:ProgramData 'DisCuss'),
     [string] $TaskName = 'DisCuss',
-    [switch] $Plan, [switch] $AllowDevelopment, [switch] $ProvisionOnly
+    [switch] $Plan, [switch] $ProvisionOnly
 )
 $ErrorActionPreference = 'Stop'
 $bundle = $PSScriptRoot
@@ -48,7 +48,6 @@ $manifest = $null
 if ($Operation -eq 'Install') {
     $manifest = Get-Content -LiteralPath (Join-Path $bundle 'manifest.json') -Raw | ConvertFrom-Json
     if ($manifest.platform -ne 'windows-x64' -or $manifest.tag -ne ('v'+$manifest.version) -or $manifest.version -notmatch '^\d+\.\d+\.\d+(?:[a-zA-Z0-9.+-]*)$') { throw 'Invalid Windows bundle identity' }
-    if (-not $manifest.qualified_dependency -and -not $AllowDevelopment) { throw 'Unqualified development bundle; offline CI opt-in required' }
     foreach ($file in $manifest.files.PSObject.Properties) {
         if ([IO.Path]::GetFileName($file.Name) -ne $file.Name -or (Get-FileHash -LiteralPath (Join-Path $bundle $file.Name) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $file.Value) { throw 'Bundle integrity failure' }
     }
@@ -128,7 +127,8 @@ try {
         $python = Join-Path $venv 'Scripts\python.exe'
         if (-not $current -and ((Test-Path -LiteralPath $config) -or (Test-Path -LiteralPath (Join-Path $state 'statistics.sqlite3')))) { Checked $python @((Join-Path $release 'manage_state.py'),'backup','--config',$config,'--state',$state,'--snapshot',$snapshot) }
         $installArgs = @('pip','install','--python',$python,'--require-hashes','-r',(Join-Path $bundle 'runtime-requirements.txt'))
-        if ($manifest.qualified_dependency) { $installArgs += @('--only-binary',':all:') }
+        $requiresBuild = if ($null -ne $manifest.receiver_requires_build) { $manifest.receiver_requires_build } else { -not $manifest.qualified_dependency }
+        if (-not $requiresBuild) { $installArgs += @('--only-binary',':all:') }
         Checked $uv $installArgs
         $wheel = @(Get-ChildItem -LiteralPath $bundle -Filter '*.whl')
         if ($wheel.Count -ne 1) { throw 'Expected exactly one application wheel' }

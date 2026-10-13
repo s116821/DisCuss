@@ -79,9 +79,17 @@ def test_actual_tag_build_and_release_assets(tmp_path: Path) -> None:
     subprocess.run(["uv", "build", "--out-dir", str(repo / "dist")], cwd=repo, check=True, capture_output=True)
     wheel = next((repo / "dist").glob("*.whl"))
     assert artifact_version(wheel) == "1.2.3"
-    assets = assemble(repo, repo / "dist", "v1.2.3", allow_development=True)
+    assets = assemble(repo, repo / "dist", "v1.2.3")
     assert (repo / "dist/SHA256SUMS").is_file()
     assert all("1.2.3" in p.name or p.name == "SHA256SUMS" for p in assets)
+    if MODULE == "discuss":
+        import zipfile
+
+        with zipfile.ZipFile(repo / "dist/DisCuss-v1.2.3-windows-x64.zip") as bundle:
+            manifest = json.loads(bundle.read("manifest.json"))
+            assert manifest["receiver_requires_build"] is True
+            assert "b68549dd0b45435d7e7e12de5fd6e0982d107e86" in manifest["receiver"]
+            assert "qualification-status.md" in bundle.namelist()
     with pytest.raises(ValueError, match="metadata does not match"):
         # Fresh build output: exclude the already created deployment tarball.
         clean = tmp_path / "mismatch"
@@ -116,7 +124,8 @@ def test_reference_analyzer_config_and_release_gate() -> None:
     assert "needs: quality" in ci
     assert "uses: ./.github/workflows/release.yml" in ci
     assert "workflow_call:" in release and "push:" not in release
-    assert "vars.RELEASE_READY == 'true'" in ci
+    assert "RELEASE_READY" not in ci
+    assert "check_release_ready" not in release
     pr = (ROOT / ".github/workflows/pr-title.yml").read_text(encoding="utf-8")
     assert "requireScope: true" in pr
     assert "fetch-depth: 0" in ci and "fetch-depth: 0" in release
