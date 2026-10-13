@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.check_openspec import problems
+from scripts.check_openspec import git_output, problems
+
+
+def test_git_wrapper_forwards_path_separator() -> None:
+    # Exercise the same argument shape as CI, including the standalone --.
+    output = git_output("diff", "--name-only", "HEAD~1", "HEAD", "--", "openspec/changes/archive")
+    assert "openspec/changes/archive/" in output
 
 
 def fixture(root: Path) -> Path:
