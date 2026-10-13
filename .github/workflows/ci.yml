@@ -31,22 +31,25 @@ jobs:
           node-version: "24"
           cache: npm
       - name: Sync
-        run: uv sync --locked --all-groups
+        run: uv sync --locked --all-groups --extra runtime
+      - name: Native Opus (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libopus0
       - run: npm ci
       - name: Ruff
-        run: uv run ruff check .
+        run: uv run --extra runtime ruff check .
       - name: Ruff format
-        run: uv run ruff format --check .
+        run: uv run --extra runtime ruff format --check .
       - name: ty
-        run: uv run ty check
+        run: uv run --extra runtime ty check
       - name: pytest
-        run: uv run pytest
+        run: uv run --extra runtime pytest
       - name: Actual semantic-release analyzer
         run: npm run test:release
       - name: OpenSpec canonical validation
         run: npm run spec:validate
       - name: OpenSpec merge readiness
-        run: uv run python scripts/check_openspec.py
+        run: uv run --extra runtime python scripts/check_openspec.py
       - name: Build
         run: uv build
 

@@ -13,8 +13,23 @@ dependencies = [
 [project.scripts]
 discuss = "discuss.cli:main"
 
+[project.optional-dependencies]
+runtime = [
+    "discord-voice-reception",
+    "faster-whisper==1.2.1",
+    "filelock>=3.20",
+    "numpy>=2.0",
+]
+
 [dependency-groups]
-dev = ["pytest>=8.3", "ruff>=0.11", "ty>=0.0.1", "packaging>=24", "pyyaml>=6.0"]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.11",
+    "ty>=0.0.1",
+    "packaging>=24",
+    "pyyaml>=6.0",
+    "psutil>=7",
+]
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]
@@ -49,3 +64,6 @@ pythonpath = ["src", "."]
 
 [tool.ty.src]
 include = ["src"]
+
+[tool.uv.sources]
+discord-voice-reception = { url = "https://github.com/s116821/DiscordVoiceReception/archive/823f586d0c8504b5b808d60dfc6ef8667b23be18.tar.gz" }

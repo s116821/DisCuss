@@ -70,12 +70,32 @@ class Store:
                 self.db.rollback()
                 self.db.close()
                 raise ValueError("Statistics schema migration failed") from None
-        elif version != 1:
+            version = 1
+        if version == 1:
+            try:
+                self.db.executescript(
+                    "BEGIN IMMEDIATE; CREATE TABLE controls "
+                    "(server TEXT PRIMARY KEY, disabled INTEGER NOT NULL); "
+                    "PRAGMA user_version=2; COMMIT;"
+                )
+            except sqlite3.Error:
+                self.db.rollback()
+                self.db.close()
+                raise ValueError("Statistics schema migration failed") from None
+        elif version != 2:
             self.db.close()
             raise ValueError("Unsupported statistics schema version")
 
     def close(self) -> None:
         self.db.close()
+
+    def disabled(self, server: str) -> bool:
+        row = self.db.execute("SELECT disabled FROM controls WHERE server=?", (server,)).fetchone()
+        return row is not None and bool(row[0])
+
+    def set_disabled(self, server: str, disabled: bool) -> None:
+        with self.db:
+            self.db.execute("INSERT OR REPLACE INTO controls VALUES (?,?)", (server, int(disabled)))
 
     def opted_out(self, server: str, member: str) -> bool:
         row = self.db.execute(
@@ -104,6 +124,7 @@ class Store:
         lexicon: Lexicon,
         *,
         excluded: bool = False,
+        detection_times: list[datetime] | None = None,
     ) -> int:
         stamp = utc_microseconds(at)
         with self.db:
@@ -111,9 +132,22 @@ class Store:
             if result.rowcount == 0 or excluded or self.opted_out(server, member):
                 return 0
             matches = lexicon.matches(text)
+            if detection_times is not None and len(detection_times) != len(matches):
+                raise ValueError("Detection timing must match recognized tracked entries")
             self.db.executemany(
                 "INSERT INTO events VALUES (?,?,?,?,?,?,?)",
-                [(server, member, channel, chunk, i, m.word, stamp) for i, m in enumerate(matches)],
+                [
+                    (
+                        server,
+                        member,
+                        channel,
+                        chunk,
+                        i,
+                        m.word,
+                        utc_microseconds(detection_times[i]) if detection_times is not None else stamp,
+                    )
+                    for i, m in enumerate(matches)
+                ],
             )
             return len(matches)
 
@@ -147,7 +181,7 @@ class Store:
                 if stamp < row["checkpoint"]:
                     raise ValueError("Monitoring checkpoints must be monotonic")
                 if row["member"] not in active or row["channel"] != channel:
-                    self._close_lease(row, stamp)
+                    self._close_lease(row, stamp if healthy else row["checkpoint"])
                     self.db.execute(
                         "DELETE FROM leases WHERE listener=? AND server=? AND member=?",
                         (listener, server, row["member"]),
