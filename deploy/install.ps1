@@ -80,6 +80,8 @@ if ($Operation -eq 'Uninstall') {
     return
 }
 $switched = $false
+$activated = $false
+$previousConfigReady = $false
 try {
     New-Item -ItemType Directory -Path $state -Force | Out-Null
     Protect $state 'Modify'
@@ -90,6 +92,8 @@ try {
     if ($current) {
         Managed $current.python | Out-Null
         Managed $current.helper | Out-Null
+        & $current.python -m discuss.cli --config $config doctor | Out-Null
+        $previousConfigReady = $LASTEXITCODE -eq 0
         Checked $current.python @($current.helper,'backup','--config',$config,'--state',$state,'--snapshot',$snapshot)
         if ($savedTask) { $savedTask | Set-Content -LiteralPath (Join-Path $snapshot 'task.xml') -Encoding Unicode }
     }
@@ -143,6 +147,9 @@ try {
         $candidate = [pscustomobject]@{python=$python;helper=(Join-Path $release 'manage_state.py');version=$manifest.version;snapshot=$snapshot}
     }
     Protect $config 'Read'
+    & $candidate.python -m discuss.cli --config $config doctor | Out-Null
+    if ($LASTEXITCODE -eq 0) { Checked $candidate.python @('-m','discuss.cli','--config',$config,'doctor','--runtime') }
+    elseif ($previousConfigReady) { throw 'Candidate rejects previously valid configuration; upgrade aborted' }
     if (-not $ProvisionOnly) {
         $action = New-ScheduledTaskAction -Execute $candidate.python -Argument ('-m discuss.cli --config "'+$config+'" --log-file "'+(Join-Path $state 'runtime.log')+'" run') -WorkingDirectory $Root
         $trigger = New-ScheduledTaskTrigger -AtStartup
@@ -152,12 +159,26 @@ try {
     }
     if ($current -and $Operation -eq 'Install' -and $current.version -ne $candidate.version) { $current.snapshot=$snapshot; $current | ConvertTo-Json | Set-Content -LiteralPath $previousFile -Encoding UTF8 }
     $candidate | ConvertTo-Json | Set-Content -LiteralPath $currentFile -Encoding UTF8
+    if (-not $ProvisionOnly) {
+        $activated = $true
+        Start-ScheduledTask -TaskName $TaskName
+        Start-Sleep -Seconds 2
+        $running = (Get-ScheduledTask -TaskName $TaskName).State -eq 'Running'
+        $result = (Get-ScheduledTaskInfo -TaskName $TaskName).LastTaskResult
+        if (-not $running -and $result -ne 0 -and $result -ne 267009) { throw 'Candidate startup failed' }
+    }
     $switched = $true
-    if (-not $ProvisionOnly) { Start-ScheduledTask -TaskName $TaskName }
     Write-Output 'Installed. Edit protected config, prepare model explicitly, run doctor --runtime, then start task.'
 } finally {
-    if (-not $switched -and $savedTask) {
-        Register-ScheduledTask -TaskName $TaskName -Xml $savedTask -Force | Out-Null
-        if ($wasRunning) { Start-ScheduledTask -TaskName $TaskName }
+    if (-not $switched) {
+        if ($activated) {
+            Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+            if ($current -and (Test-Path -LiteralPath (Join-Path $snapshot 'statistics.sqlite3'))) { Checked $current.python @($current.helper,'restore','--config',$config,'--state',$state,'--snapshot',$snapshot) }
+            if ($current) { $current | ConvertTo-Json | Set-Content -LiteralPath $currentFile -Encoding UTF8 }
+        }
+        if ($savedTask) {
+            Register-ScheduledTask -TaskName $TaskName -Xml $savedTask -Force | Out-Null
+            if ($wasRunning) { Start-ScheduledTask -TaskName $TaskName }
+        }
     }
 }

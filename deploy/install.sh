@@ -50,10 +50,19 @@ was_active=false
 systemctl is-active --quiet discuss.service && was_active=true
 saved_unit=$(mktemp "$root/backups/unit.XXXXXX")
 [[ ! -f "$unit" ]] || cp -- "$unit" "$saved_unit"
+saved_current=$(mktemp "$root/backups/current.XXXXXX")
+[[ ! -f "$root/current.json" ]] || cp -- "$root/current.json" "$saved_current"
 if [[ -f "$unit" ]]; then systemctl stop discuss.service; fi
 switched=false
+activated=false
 restore_registration() {
     if ! $switched; then
+        systemctl stop discuss.service 2>/dev/null || true
+        if $activated && [[ -n "${current_python:-}" && -f "${snapshot:-}/statistics.sqlite3" ]]; then
+            "$current_python" "$(dirname "$(dirname "$(dirname "$current_python")")")/manage_state.py" restore --config "$config" --state "$state" --snapshot "$snapshot"
+            chown discuss:discuss "$config" "$state/statistics.sqlite3"
+        fi
+        if [[ -s "$saved_current" ]]; then cp -- "$saved_current" "$root/current.json"; fi
         if [[ -s "$saved_unit" ]]; then cp -- "$saved_unit" "$unit"; else rm -f -- "$unit"; fi
         systemctl daemon-reload
         if $was_active; then systemctl reset-failed discuss.service; systemctl start discuss.service; fi
@@ -74,9 +83,11 @@ chmod 700 "$state"
 chown discuss:discuss "$state"
 snapshot=$root/backups/$(date -u +%Y%m%dT%H%M%S)-$RANDOM
 current_python=
+previous_config_ready=false
 if [[ -f "$root/current.json" ]]; then
     current_python=$(sed -n 's/.*"python": "\([^"]*\)".*/\1/p' "$root/current.json")
     [[ "$current_python" == "$root/releases/"*/venv/bin/python && -x "$current_python" ]] || exit 2
+    "$current_python" -m discuss.cli --config "$config" doctor >/dev/null && previous_config_ready=true
     "$current_python" "$(dirname "$(dirname "$(dirname "$current_python")")")/manage_state.py" backup --config "$config" --state "$state" --snapshot "$snapshot"
     cp -- "$saved_unit" "$snapshot/service.unit"
 fi
@@ -130,6 +141,12 @@ fi
 chmod 600 "$config"
 chown discuss:discuss "$config"
 if [[ -f "$state/statistics.sqlite3" ]]; then chown discuss:discuss "$state/statistics.sqlite3"; fi
+if "$python" -m discuss.cli --config "$config" doctor >/dev/null; then
+    "$python" -m discuss.cli --config "$config" doctor --runtime
+elif $previous_config_ready; then
+    echo 'Candidate rejects previously valid configuration; upgrade aborted' >&2
+    exit 2
+fi
 if ! $provision_only; then
     cat > "$unit" <<UNIT
 # DisCuss managed root=$root
@@ -167,7 +184,10 @@ if ! $provision_only; then
     # Explicit operator installs may legitimately restart several times in minutes;
     # reset the old burst counter, without changing automatic boot fault limits.
     systemctl reset-failed discuss.service
+    activated=true
     systemctl start discuss.service
+    sleep 2
+    [[ $(systemctl show discuss.service --property=ExecMainStatus --value) == 0 ]] || { echo 'Candidate startup failed' >&2; exit 2; }
 fi
 switched=true
 echo 'Installed. Edit protected config, prepare model explicitly, run doctor --runtime, then start service.'
