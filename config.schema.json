@@ -291,6 +291,113 @@
       ],
       "title": "Server",
       "type": "object"
+    },
+    "Transcription": {
+      "additionalProperties": false,
+      "properties": {
+        "model_id": {
+          "default": "Systran/faster-whisper-small",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "title": "Model Id",
+          "type": "string"
+        },
+        "revision": {
+          "default": "536b0662742c02347bc0e980a01041f333bce120",
+          "pattern": "^[a-f0-9]{40}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "device": {
+          "default": "cpu",
+          "enum": [
+            "cpu",
+            "cuda"
+          ],
+          "title": "Device",
+          "type": "string"
+        },
+        "compute_type": {
+          "default": "int8",
+          "enum": [
+            "int8",
+            "float16",
+            "int8_float16",
+            "float32"
+          ],
+          "title": "Compute Type",
+          "type": "string"
+        },
+        "cpu_threads": {
+          "default": 2,
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Cpu Threads",
+          "type": "integer"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "en",
+          "title": "Language"
+        },
+        "max_queue": {
+          "default": 8,
+          "maximum": 128,
+          "minimum": 1,
+          "title": "Max Queue",
+          "type": "integer"
+        },
+        "max_speakers": {
+          "default": 64,
+          "maximum": 128,
+          "minimum": 1,
+          "title": "Max Speakers",
+          "type": "integer"
+        },
+        "max_buffer_bytes": {
+          "default": 16777216,
+          "maximum": 268435456,
+          "minimum": 192000,
+          "title": "Max Buffer Bytes",
+          "type": "integer"
+        },
+        "max_chunk_seconds": {
+          "default": 12,
+          "maximum": 30,
+          "minimum": 0.1,
+          "title": "Max Chunk Seconds",
+          "type": "number"
+        },
+        "minimum_chunk_seconds": {
+          "default": 0.15,
+          "maximum": 2,
+          "minimum": 0.02,
+          "title": "Minimum Chunk Seconds",
+          "type": "number"
+        },
+        "silence_seconds": {
+          "default": 0.5,
+          "maximum": 5,
+          "minimum": 0.1,
+          "title": "Silence Seconds",
+          "type": "number"
+        },
+        "vad_threshold": {
+          "default": 0.003,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Vad Threshold",
+          "type": "number"
+        }
+      },
+      "title": "Transcription",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -324,6 +431,9 @@
       "minLength": 1,
       "title": "State Dir",
       "type": "string"
+    },
+    "transcription": {
+      "$ref": "#/$defs/Transcription"
     }
   },
   "required": [
