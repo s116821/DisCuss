@@ -30,9 +30,9 @@ Three words per side means up to six surrounding words, seven including a one-wo
 
 Example with neutral custom tracked words:
 
-> Stark (123) : “that **violet** word was **shade** today”, October 13, 2026 @ 5:26 pm CDT -> 2 cusses
+> Stark : “that **violet** word was **shade** today”, October 13, 2026 @ 5:26 pm CDT -> 2 cusses
 
-Each line uses the group's earliest detection in the source server's configured leaderboard timezone. Names come from cached members, with member-ID fallback. Server/channel IDs remain internal routing metadata and do not appear at the end of alerts. This is recognized text and may be wrong; a report does not prove what someone actually said.
+Each line uses the group's earliest detection in the source server's configured leaderboard timezone. Names come from cached members, with a generic Member fallback if unavailable. Member/server/channel IDs remain internal routing metadata and are omitted from alerts. The notice resolves the destination to its cached text-channel name; if unavailable, it says the configured reporting channel without printing an ID. This is recognized text and may be wrong; a report does not prove what someone actually said.
 
 Interval 0 dispatches completed recognition without an additional batching delay. Nearby matches become one instance; multiple already pending instances can share a message. A positive interval (e.g. 60 seconds) starts with the first pending instance and combines that window into a multi-line digest. Empty windows send nothing. Digests paginate below 1900 UTF-16 units. Page budgets continue the same digest on later ticks rather than waiting another interval; new arrivals wait for their subsequent window. SDK rate limits can delay sends. Delivery runs independently of capture, counting and calendar reports, with mentions disabled, markup escaped and embeds suppressed.
 

@@ -78,7 +78,8 @@ def test_context_grouping_original_case_punctuation_unicode_and_timezone() -> No
     server = configured().servers[0]
     server.leaderboards.timezone = "America/Chicago"
     line = render(group[0], "Stark", server)
-    assert "Stark (100)" in line and "October 13, 2026 @ 5:26 pm CDT -> 2 cusses" in line
+    assert line.startswith("Stark : “") and "October 13, 2026 @ 5:26 pm CDT -> 2 cusses" in line
+    assert "(100)" not in line
     assert line.endswith("-> 2 cusses") and "[server" not in line and " / channel" not in line
     assert group[0].quote not in repr(group[0])
     # Same lexicon behavior for composing characters and expanding compatibility tokens.
@@ -114,7 +115,7 @@ def test_immediate_digest_speaker_separation_and_idempotence(tmp_path: Path) -> 
         add(store, feed, "b", member="200")
         await asyncio.sleep(0.02)
         assert len(pages) == 1 and pages[0].count("-> 2 cusses") == 2
-        assert "Stark (100)" in pages[0] and "Other (200)" in pages[0]
+        assert "Stark : “" in pages[0] and "Other : “" in pages[0]
         add(store, feed, "a")
         feed.tick()
         await asyncio.sleep(0)
@@ -250,6 +251,7 @@ def test_primary_channel_fallback_override_and_safe_sdk_arguments(tmp_path: Path
         pipeline = SpeechPipeline(cfg, store, Mock())
         listener = DiscordListener(cfg.bots[0], cfg, store, pipeline)
         channel = Mock(spec=discord.TextChannel)
+        channel.name = "leaderboard-alerts"
         channel.permissions_for.return_value = SimpleNamespace(view_channel=True, send_messages=True)
         channel.send = AsyncMock(return_value=SimpleNamespace(id=789))
         server = Mock()
@@ -257,16 +259,27 @@ def test_primary_channel_fallback_override_and_safe_sdk_arguments(tmp_path: Path
         server.get_channel.return_value = channel
         listener.client.get_guild = Mock(return_value=server)
         policy = cfg.servers[0]
+        await listener.notice(policy)
+        assert "posted in #leaderboard-alerts" in channel.send.call_args.args[0]
         await listener.publish_detections(policy, "Safe test")
         server.get_channel.assert_called_with(int(policy.report_channel_id))
         policy.detection_reporting.channel_id = "50"
+        separate = Mock(spec=discord.TextChannel)
+        separate.name = "separate-alerts"
+        separate.permissions_for.return_value = SimpleNamespace(view_channel=True, send_messages=True)
+        separate.send = AsyncMock(return_value=SimpleNamespace(id=790))
+        server.get_channel.side_effect = lambda identifier: separate if identifier == 50 else channel
         await listener.publish_detections(policy, "Safe test")
         server.get_channel.assert_called_with(50)
-        kwargs = channel.send.call_args.kwargs
+        kwargs = separate.send.call_args.kwargs
         assert kwargs["suppress_embeds"] and not kwargs["allowed_mentions"].everyone
         assert not kwargs["allowed_mentions"].users and not kwargs["allowed_mentions"].roles
-        assert "channel 50" in notice(policy) and "Discord retains" in notice(policy)
-        channel.permissions_for.return_value.send_messages = False
+        await listener.notice(policy)
+        assert "posted in #separate-alerts" in channel.send.call_args.args[0]
+        assert "configured reporting channel" in notice(policy) and "channel 50" not in notice(policy)
+        assert "＠everyone" in notice(policy, "@everyone") and "@everyone" not in notice(policy, "@everyone")
+        assert "Discord retains" in notice(policy)
+        separate.permissions_for.return_value.send_messages = False
         with pytest.raises(ValueError, match="permissions"):
             await listener.publish_detections(policy, "Safe test")
         await listener.close()
@@ -343,7 +356,7 @@ def test_page_budget_drains_one_digest_and_defers_new_interval_items(tmp_path: P
             pages.append(page)
             return str(len(pages))
 
-        feed.bind(send, lambda s, m: "Member", lambda s: True)
+        feed.bind(send, lambda s, m: "Member-" + m, lambda s: True)
         for number in range(20):
             add(store, feed, str(number), member=str(100 + number))
         clock[0] = 60
@@ -360,7 +373,7 @@ def test_page_budget_drains_one_digest_and_defers_new_interval_items(tmp_path: P
         clock[0] = 121
         feed.tick()
         await asyncio.sleep(0.02)
-        assert "(999)" in pages[-1] and not feed.pending
+        assert "Member-999" in pages[-1] and not feed.pending
         await feed.close()
         store.close()
 
@@ -427,7 +440,7 @@ def test_all_listeners_share_primary_feed_with_independent_servers(tmp_path: Pat
                 self.quotes = []
 
             def speaker_name(self, server, member):
-                return self.name + "-cached-name"
+                return self.name + "-cached-name-" + member
 
             async def publish_detections(self, server, page):
                 self.quotes.append((server.server_id, page))
@@ -446,8 +459,8 @@ def test_all_listeners_share_primary_feed_with_independent_servers(tmp_path: Pat
         await asyncio.sleep(0.02)
         assert len(primary.quotes) == len(secondary.quotes) == 1
         assert primary.quotes[0][0] == "1" and primary.quotes[0][1].count("-> 1 cuss") == 2
-        assert secondary.quotes[0][0] == "2" and "(300)" in secondary.quotes[0][1]
-        assert "(300)" not in primary.quotes[0][1]
+        assert secondary.quotes[0][0] == "2" and "secondary-cached-name-300" in secondary.quotes[0][1]
+        assert "secondary-cached-name-300" not in primary.quotes[0][1]
         await coordinator.close(moment())
         store.close()
 
