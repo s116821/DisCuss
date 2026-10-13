@@ -11,7 +11,7 @@ from pathlib import Path
 
 from filelock import FileLock, Timeout
 
-from .config import Config, ConfigError, load_config
+from .config import Config, ConfigError, check_private_file, load_config
 from .coordinator import Coordinator
 from .diagnostics import write_health
 from .discord_adapter import DiscordListener
@@ -27,6 +27,7 @@ def state_path(config: Config, config_path: Path) -> Path:
 def run_application(config: Config, config_path: Path) -> int:
     root = state_path(config, config_path)
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    check_private_file(root)
     lock = FileLock(root / "application.lock")
     try:
         with lock.acquire(timeout=0):

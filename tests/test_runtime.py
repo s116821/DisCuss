@@ -477,3 +477,18 @@ def test_local_health_without_credentials_and_intentional_setup_exit(tmp_path: P
     assert main(["--config", str(tmp_path / "missing.json"), "run"]) == 0
     assert "Setup required" in capsys.readouterr().out
     db.close()
+
+
+def test_runtime_rejects_broad_state_before_model_or_database(tmp_path: Path, monkeypatch) -> None:
+    from discuss.application import run_application
+
+    cfg = config()
+    cfg.state_dir = str(tmp_path / "broad-state")
+
+    def reject(path):
+        raise ConfigError("State permissions must be private")
+
+    monkeypatch.setattr("discuss.application.check_private_file", reject)
+    with pytest.raises(ConfigError, match="private"):
+        run_application(cfg, tmp_path / "config.json")
+    assert not (Path(cfg.state_dir) / "statistics.sqlite3").exists()
