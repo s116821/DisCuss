@@ -56,7 +56,7 @@ restore_registration() {
     if ! $switched; then
         if [[ -s "$saved_unit" ]]; then cp -- "$saved_unit" "$unit"; else rm -f -- "$unit"; fi
         systemctl daemon-reload
-        if $was_active; then systemctl start discuss.service; fi
+        if $was_active; then systemctl reset-failed discuss.service; systemctl start discuss.service; fi
     fi
 }
 trap restore_registration EXIT
@@ -163,6 +163,11 @@ UNIT
 fi
 cp -- "$candidate" "$root/current.json.tmp"
 mv -- "$root/current.json.tmp" "$root/current.json"
+if ! $provision_only; then
+    # Explicit operator installs may legitimately restart several times in minutes;
+    # reset the old burst counter, without changing automatic boot fault limits.
+    systemctl reset-failed discuss.service
+    systemctl start discuss.service
+fi
 switched=true
-if ! $provision_only; then systemctl start discuss.service; fi
 echo 'Installed. Edit protected config, prepare model explicitly, run doctor --runtime, then start service.'
