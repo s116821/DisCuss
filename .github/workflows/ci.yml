@@ -86,8 +86,34 @@ jobs:
           name: installer-fixtures-${{ runner.os }}
           path: smoke-assets/SHA256SUMS
 
+  synthetic-speech:
+    needs: quality
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      DISCORD_LIVE_TESTS: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.0"
+      - run: uv sync --locked --all-groups --extra runtime
+      - name: Explicit pinned synthetic-only model setup
+        shell: pwsh
+        run: uv run --extra runtime discuss model-setup --state-dir "${{ runner.temp }}/speech-state"
+      - name: CPU recognition and bounded attributed load
+        shell: pwsh
+        run: uv run --extra runtime python -m scripts.evaluate_speech --state-dir "${{ runner.temp }}/speech-state" --output "speech-metrics/${{ runner.os }}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: speech-metrics-${{ runner.os }}
+          path: speech-metrics/*.json
+
   release:
-    needs: [quality, native-smoke]
+    needs: [quality, native-smoke, synthetic-speech]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.RELEASE_READY == 'true'
     permissions:
       contents: write
