@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import cast
+from zoneinfo import ZoneInfo
 
 from .calendar import Cadence, Window, from_microseconds, utc_microseconds, window_at
 from .config import Leaderboards, Server
+from .detection_reporting import MONTHS, safe_text, units
 from .storage import Store
 
 
@@ -54,35 +57,115 @@ def safe_word(word: str) -> str:
     return result
 
 
-def render(window: Window, board: Standings, *, limit: int = 1900) -> list[str]:
+MEMBER_SLOT = re.compile(r"\{\{member:([1-9][0-9]{0,19})\}\} *")
+LEGACY_MEMBER = re.compile(r"\bMember ([1-9][0-9]{0,19})\b")
+NAME_UNITS = 132
+
+
+def period_label(window: Window, timezone: str = "UTC") -> str:
+    start = window.start.astimezone(ZoneInfo(timezone))
+    end = (window.end - timedelta(microseconds=1)).astimezone(ZoneInfo(timezone))
+    if window.cadence == "year":
+        return str(start.year)
+    if window.cadence == "month":
+        return f"{MONTHS[start.month - 1]} {start.year}"
+    first = f"{MONTHS[start.month - 1][:3]} {start.day}"
+    if window.cadence == "day":
+        return f"{first}, {start.year}"
+    if start.year != end.year:
+        return f"{first}, {start.year} – {MONTHS[end.month - 1][:3]} {end.day}, {end.year}"
+    last = str(end.day) if start.month == end.month else f"{MONTHS[end.month - 1][:3]} {end.day}"
+    return f"{first}–{last}, {start.year}"
+
+
+def report_members(page: str) -> set[str]:
+    return {m.group(1) for pattern in (MEMBER_SLOT, LEGACY_MEMBER) for m in pattern.finditer(page)}
+
+
+def resolve_page_names(page: str, name: Callable[[str], str], *, limit: int = 1900) -> str:
+    # Keep old page/receipt identities while removing their automatic word sections.
+    lines = [
+        line
+        for line in page.splitlines()
+        if line != "Per-word counts" and not re.match(r"^Member [0-9]+: .+ = [0-9]+$", line)
+    ]
+    template = "\n".join(lines)
+    for width in (64, 32, 16, 8, 4, 2, 1):
+        rendered = re.sub(
+            r"\{\{member:([1-9][0-9]{0,19})\}\} *|\bMember ([1-9][0-9]{0,19})\b",
+            lambda m: safe_text(name(m.group(1) or m.group(2)) or "Unknown member", width),
+            template,
+        )
+        if units(rendered) <= limit:
+            return rendered
+    raise ValueError("Report page cannot fit the message limit")
+
+
+def render(
+    window: Window,
+    board: Standings,
+    *,
+    member_name: Callable[[str], str] | None = None,
+    timezone: str = "UTC",
+    show_scaled: bool = True,
+    reserve_names: bool = False,
+    limit: int = 1900,
+) -> list[str]:
     if not 256 <= limit <= 1900:
         raise ValueError("Report page limit must be between 256 and 1900")
-    header = f"DisCuss {window.cadence} | {window.start.isoformat()} to {window.end.isoformat()}"
-    lines = ["Total standings"]
-    lines.extend(f"{i}. Member {r.member_id}: {r.count} detected" for i, r in enumerate(board.total, 1))
-    if not board.total:
-        lines.append("No tracked word detections.")
-    lines.append("Scaled standings (cusses/hour actually monitored)")
-    lines.extend(
-        f"{i}. Member {r.member_id}: {r.rate:.2f}/hour | {r.count} detected | "
-        f"{r.monitored_seconds / 60:.2f} minutes monitored"
-        for i, r in enumerate(board.scaled, 1)
-    )
-    if not board.scaled:
-        lines.append("No members meet this window's monitoring threshold.")
-    lines.append("Per-word counts")
-    for member in sorted(board.words, key=int):
-        lines.extend(
-            f"Member {member}: {safe_word(word)} = {count}" for word, count in sorted(board.words[member].items())
+    title = {"day": "Daily", "week": "Weekly", "month": "Monthly", "year": "Yearly"}[window.cadence]
+    header = f"**{title} standings**\n{period_label(window, timezone)}"
+
+    def label(member: str) -> str:
+        if reserve_names:
+            return f"{{{{member:{member}}}}}".ljust(NAME_UNITS)
+        return safe_text(member_name(member) if member_name else "Unknown member", 64)
+
+    sections = [
+        (
+            "Total cusses",
+            [f"{i}. **{label(r.member_id)}** · **{r.count:,}**" for i, r in enumerate(board.total, 1)]
+            or ["No cusses detected in this period."],
         )
+    ]
+    if show_scaled:
+        rows = [
+            f"{i}. **{label(r.member_id)}** · **{r.rate:,.2f}/hr**\n"
+            f"   {r.count:,} cusses · {r.monitored_seconds / 60:,.1f}m monitored"
+            for i, r in enumerate(board.scaled, 1)
+        ]
+        sections.append(("Cusses per monitored hour", rows or ["No members meet the monitoring threshold yet."]))
     pages, current = [], header
-    for line in lines:
-        if len(header) + len(line) + 1 > limit:
-            raise ValueError("A report row exceeds the page limit")
-        if len(current) + len(line) + 1 > limit:
+    for heading, rows in sections:
+        section = f"**{heading}**"
+        if units(current + "\n\n" + section + "\n" + rows[0]) > limit:
             pages.append(current)
             current = header
-        current += "\n" + line
+        current += "\n\n" + section
+        for line in rows:
+            if units(header + "\n\n" + section + "\n" + line) > limit:
+                raise ValueError("A report row exceeds the page limit")
+            if units(current + "\n" + line) > limit:
+                pages.append(current)
+                current = header + "\n\n" + section
+            current += "\n" + line
+    pages.append(current)
+    return pages
+
+
+def render_word_counts(
+    window: Window, counts: dict[str, int], speaker: str, timezone: str, *, limit: int = 1900
+) -> list[str]:
+    header = f"**{safe_text(speaker, 64)} — word counts**\n{period_label(window, timezone)}"
+    pages, current = [], header
+    rows = [f"**{safe_text(word, 100)}** · {count:,}" for word, count in sorted(counts.items())] or [
+        "No tracked detections in this period."
+    ]
+    for row in rows:
+        if units(current + "\n" + row) > limit:
+            pages.append(current)
+            current = header
+        current += "\n" + row
     pages.append(current)
     return pages
 
@@ -121,7 +204,13 @@ class Scheduler:
                     board = standings(self.store, server.server_id, window, server.leaderboards)
                     suppress = not board.words and (name == "day" or server.leaderboards.suppress_empty_reports)
                     if not suppress:
-                        pages = render(window, board)
+                        pages = render(
+                            window,
+                            board,
+                            timezone=server.leaderboards.timezone,
+                            show_scaled=server.leaderboards.scaled.enabled,
+                            reserve_names=True,
+                        )
                         members = sorted({r.member_id for r in board.total + board.scaled}, key=int)
                         result = self.store.db.execute(
                             "INSERT OR IGNORE INTO outbox(server,period,start,end,pages,members) VALUES (?,?,?,?,?,?)",
