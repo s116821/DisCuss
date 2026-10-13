@@ -5,14 +5,14 @@ Explain individual recognized curse detections through explicitly opted-in attri
 ## ADDED Requirements
 
 ### Requirement: Explicit contextual publication and destination
-Detection reporting SHALL be disabled by default and require excerpt-publication acknowledgement before enablement. The primary publisher SHALL aggregate every listener serving its server. Destination SHALL default to that server's leaderboard channel and permit a separate configured text channel. Visible notice MUST disclose excerpt publication and Discord retention.
+Detection reporting SHALL be disabled by default and require excerpt-publication acknowledgement before enablement. The primary publisher SHALL aggregate every listener serving its server. Destination SHALL default to that server's leaderboard channel and permit a separate configured text channel. Visible notice MUST disclose excerpt publication and Discord retention, identifying the destination by its resolved channel name or a generic fallback.
 
 #### Scenario: Use the existing channel
 - **WHEN** a server enables detection reporting with acknowledgement and no destination override
 - **THEN** its primary bot publishes detection instances to its configured leaderboard channel
 
 ### Requirement: Attributed grouped context
-Each instance SHALL identify speaker, earliest detection time in server timezone and tracked-match count. Context SHALL default to three words before/after and preserve recognized case/punctuation. Overlapping contexts for one speaker/chunk SHALL merge, with each match counted once. Context MUST NOT mix speakers and MAY be clipped/split at chunk or message boundaries. Server/channel IDs SHALL remain internal and MUST NOT be appended to alert text.
+Each instance SHALL identify speaker, earliest detection time in server timezone and tracked-match count. Context SHALL default to three words before/after and preserve recognized case/punctuation. Overlapping contexts for one speaker/chunk SHALL merge, with each match counted once. Context MUST NOT mix speakers and MAY be clipped/split at chunk or message boundaries. Member/server/channel IDs SHALL remain internal and MUST NOT appear as identifiers in alert text.
 
 #### Scenario: Two nearby matches
 - **WHEN** two detections from one speaker have overlapping context windows

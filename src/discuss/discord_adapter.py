@@ -220,8 +220,13 @@ class DiscordListener:
         return channel
 
     async def notice(self, server: Server) -> None:
-        await self._report_channel(server).send(
-            notice(server), allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True
+        report_channel = self._report_channel(server)
+        instance = self.client.get_guild(int(server.server_id))
+        destination_id = server.detection_reporting.channel_id or server.report_channel_id
+        destination = instance.get_channel(int(destination_id)) if instance else None
+        name = destination.name if isinstance(destination, discord.TextChannel) else None
+        await report_channel.send(
+            notice(server, name), allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True
         )
 
     def speaker_name(self, server: str, member: str) -> str:

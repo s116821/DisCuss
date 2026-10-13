@@ -169,17 +169,18 @@ def render(instance: Instance, speaker: str, server: Server) -> str:
     stamp = f"{MONTHS[at.month - 1]} {at.day}, {at.year} @ {at.hour % 12 or 12}:{at.minute:02d} "
     stamp += f"{'am' if at.hour < 12 else 'pm'} {at.tzname()}"
     count = "cuss" if instance.count == 1 else "cusses"
-    return f"{safe_text(speaker, 64)} ({instance.member}) : “{instance.quote}”, {stamp} -> {instance.count} {count}"
+    return f"{safe_text(speaker, 64)} : “{instance.quote}”, {stamp} -> {instance.count} {count}"
 
 
-def notice(server: Server) -> str:
+def notice(server: Server, channel_name: str | None = None) -> str:
     settings = server.detection_reporting
     if not settings.enabled:
         return server.privacy.listening_notice
+    destination = f"#{safe_text(channel_name)}" if channel_name else "the configured reporting channel"
     return (
         server.privacy.listening_notice + f" Contextual detection reports are enabled: up to "
-        f"{settings.context_words_per_side} words each side of detected speech are posted in channel "
-        f"{settings.channel_id or server.report_channel_id}. Discord retains posted excerpts; "
+        f"{settings.context_words_per_side} words each side of detected speech are posted in "
+        f"{destination}. Discord retains posted excerpts; "
         "opt-out/delete stops pending reports, while already posted text needs operator removal."
     )
 
