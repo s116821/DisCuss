@@ -11,12 +11,16 @@ Detection reporting SHALL be disabled by default and require excerpt-publication
 - **WHEN** a server enables detection reporting with acknowledgement and no destination override
 - **THEN** its primary bot publishes detection instances to its configured leaderboard channel
 
+#### Scenario: Concise default announcement
+- **WHEN** the default processing notice is used with detection reports enabled
+- **THEN** one concise sentence names the destination and Discord retention, with personal opt-out/in controls
+
 ### Requirement: Attributed grouped context
-Each instance SHALL identify speaker, earliest detection time in server timezone and tracked-match count. Context SHALL default to three words before/after and preserve recognized case/punctuation. Overlapping contexts for one speaker/chunk SHALL merge, with each match counted once. Context MUST NOT mix speakers and MAY be clipped/split at chunk or message boundaries. Member/server/channel IDs SHALL remain internal and MUST NOT appear as identifiers in alert text.
+Instances SHALL display quote first, an em dash, speaker name and earliest detection time in server timezone. Counts and member/server/channel IDs MUST remain internal, omitted from alerts. Context SHALL default to three words per side and preserve case/punctuation. Overlapping windows for one speaker/chunk SHALL merge, counting each match once. Context MUST NOT mix speakers and MAY be clipped or split at chunk/message boundaries.
 
 #### Scenario: Two nearby matches
 - **WHEN** two detections from one speaker have overlapping context windows
-- **THEN** one grouped instance displays both and reports two tracked matches
+- **THEN** one grouped instance displays both and internally counts two tracked matches
 
 ### Requirement: Immediate or interval digests
 Immediate mode SHALL dispatch completed recognition instances without a configured batching delay. A positive interval SHALL combine pending instances in a digest. Messages MUST obey Discord limits, escape untrusted markup and disable mentions/embeds. Delivery tasks MUST NOT block capture/counting/calendar work; normal retry MUST NOT resend acknowledged pages.

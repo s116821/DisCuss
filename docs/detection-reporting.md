@@ -24,15 +24,15 @@ Merge this fragment into an existing server entry (IDs are placeholders):
 }
 ```
 
-Enabling requires the separate context-publication acknowledgement. Tell participants beforehand that recognized excerpts will be posted to Discord and who can see the channel. The primary processing notice automatically discloses excerpt size, destination and Discord retention. An override must be a text channel in the same server; grant the primary bot View Channel/Send Messages there, without Administrator.
+Enabling requires the separate context-publication acknowledgement. Tell participants beforehand that recognized excerpts will be posted to Discord and who can see the channel. The default announcement is one concise sentence naming the destination, Discord retention and personal opt-out/in controls. Custom listening notices are preserved with a short excerpt-publication disclosure appended. An override must be a text channel in the same server; grant the primary bot View Channel/Send Messages there, without Administrator.
 
 Three words per side means up to six surrounding words, seven including a one-word match. Word boundaries use the same normalization as the existing lexicon. Original recognized case/punctuation are preserved, and counted matches are highlighted. Overlapping contexts merge transitively for one speaker/chunk; different speakers/chunks remain separate instances. Context is clipped at completed speech chunk boundaries. Oversized groups split to fit messages; a split's repeated context can show an earlier match without highlighting/counting it again. Counts use the existing longest-phrase rule, with no new scoring algorithm.
 
 Example with neutral custom tracked words:
 
-> Stark : “that **violet** word was **shade** today”, October 13, 2026 @ 5:26 pm CDT -> 2 cusses
+> “that **violet** word was **shade** today” — Stark, October 13, 2026 @ 5:26 pm CDT
 
-Each line uses the group's earliest detection in the source server's configured leaderboard timezone. Names come from cached members, with a generic Member fallback if unavailable. Member/server/channel IDs remain internal routing metadata and are omitted from alerts. The notice resolves the destination to its cached text-channel name; if unavailable, it says the configured reporting channel without printing an ID. This is recognized text and may be wrong; a report does not prove what someone actually said.
+Each line puts the quote first, followed by an em dash, speaker name and the group's earliest detection in the source server's configured leaderboard timezone. Match counts remain internal and in standings rather than appearing in each alert. Names come from cached members, with a generic Member fallback if unavailable. Member/server/channel IDs remain internal routing metadata and are omitted from alerts. The notice resolves the destination to its cached text-channel name; if unavailable, it says the configured reporting channel without printing an ID. This is recognized text and may be wrong; a report does not prove what someone actually said.
 
 Interval 0 dispatches completed recognition without an additional batching delay. Nearby matches become one instance; multiple already pending instances can share a message. A positive interval (e.g. 60 seconds) starts with the first pending instance and combines that window into a multi-line digest. Empty windows send nothing. Digests paginate below 1900 UTF-16 units. Page budgets continue the same digest on later ticks rather than waiting another interval; new arrivals wait for their subsequent window. SDK rate limits can delay sends. Delivery runs independently of capture, counting and calendar reports, with mentions disabled, markup escaped and embeds suppressed.
 

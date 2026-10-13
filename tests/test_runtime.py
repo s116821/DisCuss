@@ -338,6 +338,10 @@ def test_primary_command_authorization_privacy_and_secondary_routing(tmp_path: P
         assert db.opted_out("1", "100")
         assert not db.opted_out("1", "200") and not db.disabled("1")
         assert not pipeline.allowed("1", "100") and pipeline.allowed("1", "200")
+        command = listener.commands.get_command("opt_in")
+        await command.callback(interaction)
+        assert not db.opted_out("1", "100") and pipeline.allowed("1", "100")
+        assert pipeline.allowed("1", "200") and not db.disabled("1")
         assert not listener.client.intents.message_content
         cfg.servers[0].primary_bot = "secondary"
         assert listener._policy(interaction) is None
