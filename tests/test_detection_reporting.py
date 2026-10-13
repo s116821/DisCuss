@@ -79,6 +79,7 @@ def test_context_grouping_original_case_punctuation_unicode_and_timezone() -> No
     server.leaderboards.timezone = "America/Chicago"
     line = render(group[0], "Stark", server)
     assert "Stark (100)" in line and "October 13, 2026 @ 5:26 pm CDT -> 2 cusses" in line
+    assert line.endswith("-> 2 cusses") and "[server" not in line and " / channel" not in line
     assert group[0].quote not in repr(group[0])
     # Same lexicon behavior for composing characters and expanding compatibility tokens.
     for raw, word in (("cafe\u0301!", "café"), ("ﬃ!", "ffi"), ("İ!", "i")):

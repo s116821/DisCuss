@@ -13,7 +13,7 @@ Detection reporting SHALL be disabled by default and require excerpt-publication
 - **THEN** its primary bot publishes detection instances to its configured leaderboard channel
 
 ### Requirement: Attributed grouped context
-Each instance SHALL identify speaker, source, earliest detection time in server timezone and tracked-match count. Context SHALL default to three words before/after and preserve recognized case/punctuation. Overlapping contexts for one speaker/chunk SHALL merge, with each match counted once. Context MUST NOT mix speakers and MAY be clipped/split at chunk or message boundaries.
+Each instance SHALL identify speaker, earliest detection time in server timezone and tracked-match count. Context SHALL default to three words before/after and preserve recognized case/punctuation. Overlapping contexts for one speaker/chunk SHALL merge, with each match counted once. Context MUST NOT mix speakers and MAY be clipped/split at chunk or message boundaries. Server/channel IDs SHALL remain internal and MUST NOT be appended to alert text.
 
 #### Scenario: Two nearby matches
 - **WHEN** two detections from one speaker have overlapping context windows

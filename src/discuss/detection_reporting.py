@@ -169,10 +169,7 @@ def render(instance: Instance, speaker: str, server: Server) -> str:
     stamp = f"{MONTHS[at.month - 1]} {at.day}, {at.year} @ {at.hour % 12 or 12}:{at.minute:02d} "
     stamp += f"{'am' if at.hour < 12 else 'pm'} {at.tzname()}"
     count = "cuss" if instance.count == 1 else "cusses"
-    return (
-        f"{safe_text(speaker, 64)} ({instance.member}) : “{instance.quote}”, {stamp} -> {instance.count} {count} "
-        f"[server {instance.server} / channel {instance.channel}]"
-    )
+    return f"{safe_text(speaker, 64)} ({instance.member}) : “{instance.quote}”, {stamp} -> {instance.count} {count}"
 
 
 def notice(server: Server) -> str:
