@@ -1,0 +1,68 @@
+name: release
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.semantic.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install semantic-release@25 and conventional-changelog-conventionalcommits@9
+        run: npm ci
+      - name: semantic-release
+        id: semantic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release.mjs
+      - uses: actions/checkout@v4
+        if: steps.semantic.outputs.tag != ''
+        with:
+          ref: ${{ steps.semantic.outputs.tag }}
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        if: steps.semantic.outputs.tag != ''
+        with:
+          version: "0.13.0"
+      - name: Build tag-derived packages and verify assets
+        if: steps.semantic.outputs.tag != ''
+        env:
+          RELEASE_TAG: ${{ steps.semantic.outputs.tag }}
+        run: |
+          uv sync --locked --all-groups
+          uv build
+          uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file runtime-requirements.txt\n          uv run python scripts/create_release.py --tag "$RELEASE_TAG"
+      - uses: actions/attest-build-provenance@v2
+        if: steps.semantic.outputs.tag != ''
+        with:
+          subject-path: 'dist/*'
+      - name: Upload assets in the same workflow as tag creation
+        if: steps.semantic.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.semantic.outputs.tag }}
+        run: gh release upload "$RELEASE_TAG" dist/*
+      - uses: actions/upload-artifact@v4
+        if: steps.semantic.outputs.tag != ''
+        with:
+          name: release-distributions
+          path: dist/

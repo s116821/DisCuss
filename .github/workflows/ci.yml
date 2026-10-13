@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      OPENSPEC_TELEMETRY: "0"
+      DISCORD_LIVE_TESTS: "0"
+      OPENSPEC_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.0"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Sync
+        run: uv sync --locked --all-groups
+      - run: npm ci
+      - name: Ruff
+        run: uv run ruff check .
+      - name: Ruff format
+        run: uv run ruff format --check .
+      - name: ty
+        run: uv run ty check
+      - name: pytest
+        run: uv run pytest
+      - name: Actual semantic-release analyzer
+        run: npm run test:release
+      - name: OpenSpec canonical validation
+        run: npm run spec:validate
+      - name: OpenSpec merge readiness
+        run: uv run python scripts/check_openspec.py
+      - name: Build
+        run: uv build
+
+  release:
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.RELEASE_READY == 'true'
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release.yml
