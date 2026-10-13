@@ -280,7 +280,7 @@ def test_primary_channel_fallback_override_and_safe_sdk_arguments(tmp_path: Path
         assert "configured reporting channel" in notice(policy) and "channel 50" not in notice(policy)
         assert "＠everyone" in notice(policy, "@everyone") and "@everyone" not in notice(policy, "@everyone")
         concise = notice(policy, "separate-alerts")
-        assert "remain on Discord" in concise and "opt_out or opt_in" in concise
+        assert "remain on Discord" not in concise and "opt_out or opt_in" in concise
         assert "\n" not in concise and len(concise) < 220 and "words each side" not in concise
         custom = policy.model_copy(deep=True)
         custom.privacy.listening_notice = "Custom server processing notice for this test."

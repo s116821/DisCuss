@@ -5,7 +5,7 @@ Explain individual recognized curse detections through explicitly opted-in attri
 ## ADDED Requirements
 
 ### Requirement: Explicit contextual publication and destination
-Detection reporting SHALL be disabled by default and require excerpt-publication acknowledgement before enablement. The primary publisher SHALL aggregate every listener serving its server. Destination SHALL default to that server's leaderboard channel and permit a separate configured text channel. Visible notice MUST disclose excerpt publication and Discord retention, identifying the destination by its resolved channel name or a generic fallback.
+Detection reporting SHALL be disabled by default and require excerpt-publication acknowledgement before enablement. The primary publisher SHALL aggregate every listener serving its server. Destination SHALL default to that server's leaderboard channel and permit a separate configured text channel. Visible notice MUST disclose excerpt publication, identifying the destination by its resolved channel name or a generic fallback.
 
 #### Scenario: Use the existing channel
 - **WHEN** a server enables detection reporting with acknowledgement and no destination override
@@ -13,7 +13,7 @@ Detection reporting SHALL be disabled by default and require excerpt-publication
 
 #### Scenario: Concise default announcement
 - **WHEN** the default processing notice is used with detection reports enabled
-- **THEN** one concise sentence names the destination and Discord retention, with personal opt-out/in controls
+- **THEN** one concise sentence names the destination, with personal opt-out/in controls
 
 ### Requirement: Attributed grouped context
 Instances SHALL display quote first, an em dash, speaker name and earliest detection time in server timezone. Counts and member/server/channel IDs MUST remain internal, omitted from alerts. Context SHALL default to three words per side and preserve case/punctuation. Overlapping windows for one speaker/chunk SHALL merge, counting each match once. Context MUST NOT mix speakers and MAY be clipped or split at chunk/message boundaries.

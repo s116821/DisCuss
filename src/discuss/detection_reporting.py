@@ -176,7 +176,7 @@ def notice(server: Server, channel_name: str | None = None) -> str:
     if not settings.enabled:
         return server.privacy.listening_notice
     destination = f"#{safe_text(channel_name)}" if channel_name else "the configured reporting channel"
-    disclosure = f"excerpts go to {destination} and remain on Discord"
+    disclosure = f"excerpts go to {destination}"
     text = server.privacy.listening_notice
     if text == Privacy.model_fields["listening_notice"].default:
         return text.replace("locally;", f"locally; {disclosure};", 1)
