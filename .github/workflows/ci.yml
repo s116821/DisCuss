@@ -77,8 +77,9 @@ jobs:
         run: |
           uv run --extra runtime python -m scripts.prepare_smoke_bundle smoke-assets
           uv run --extra runtime python -m scripts.prepare_smoke_bundle upgrade-assets --tag v1.2.4
+          uv run --extra runtime python -m scripts.prepare_smoke_bundle second-upgrade-assets --tag v1.2.5
       - name: Exact extracted asset install, rerun, upgrade, rollback and removal
-        run: uv run --extra runtime python -m scripts.smoke_native smoke-assets --upgrade upgrade-assets
+        run: uv run --extra runtime python -m scripts.smoke_native smoke-assets --upgrade upgrade-assets --second-upgrade second-upgrade-assets
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -18,7 +18,14 @@ def run(*args: str) -> None:
     subprocess.run(args, check=True)
 
 
-def smoke(assets: Path, upgrade: Path | None = None, *, tag: str = "v1.2.3", development: bool = True) -> None:
+def smoke(
+    assets: Path,
+    upgrade: Path | None = None,
+    second_upgrade: Path | None = None,
+    *,
+    tag: str = "v1.2.3",
+    development: bool = True,
+) -> None:
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise RuntimeError("Privileged smoke is restricted to disposable GitHub-hosted runners")
     windows = os.name == "nt"
@@ -126,6 +133,9 @@ def smoke(assets: Path, upgrade: Path | None = None, *, tag: str = "v1.2.3", dev
         if upgrade is not None:
             second = unpack(upgrade, "v1.2.4", "second")
             install(second)
+            if second_upgrade is not None:
+                third = unpack(second_upgrade, "v1.2.5", "third")
+                install(third)
             install(second, "rollback")
         admin_python(
             'import pathlib,sqlite3,sys; r=pathlib.Path(sys.argv[1]); d=sqlite3.connect(r/"state/statistics.sqlite3"); '
@@ -144,12 +154,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("assets", type=Path)
     parser.add_argument("--upgrade", type=Path)
+    parser.add_argument("--second-upgrade", type=Path)
     parser.add_argument("--tag", default="v1.2.3")
     parser.add_argument("--qualified", action="store_true")
     args = parser.parse_args()
     smoke(
         args.assets.resolve(),
         args.upgrade.resolve() if args.upgrade else None,
+        args.second_upgrade.resolve() if args.second_upgrade else None,
         tag=args.tag,
         development=not args.qualified,
     )
