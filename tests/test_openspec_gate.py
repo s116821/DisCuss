@@ -7,7 +7,8 @@ from scripts.check_openspec import git_output, problems
 
 def test_git_wrapper_forwards_path_separator() -> None:
     # Exercise the same argument shape as CI, including the standalone --.
-    output = git_output("diff", "--name-only", "HEAD~1", "HEAD", "--", "openspec/changes/archive")
+    base = git_output("rev-list", "--max-parents=0", "HEAD").strip()
+    output = git_output("diff", "--name-only", base, "HEAD", "--", "openspec/changes/archive")
     assert "openspec/changes/archive/" in output
 
 
