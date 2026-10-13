@@ -1,0 +1,13 @@
+# Voice processing and operator responsibilities
+
+DisCuss is an opt-in entertainment competition. Before enabling monitoring, clearly post the configured listening/processing notice where participants can see it, explain counted data and retention, and provide an opt-out/deletion contact. Acknowledging the notice in configuration is required; it does not replace participant consent or local requirements.
+
+Use only separately authorized bot applications. Never supply a Discord user login token or bypass a member's privacy/security choices. Administrators can set monitoring_enabled=false, exclude member IDs, apply runtime opt-out preferences and delete local data. Excluded members accrue no new detections/exposure. Do not use these standings to infer sensitive traits, harass members or train models.
+
+Audio buffers and unrelated speech text are ephemeral and must be discarded after recognition. Minimal normalized word events and actual monitoring exposure support the stated rankings. Keep SQLite, backups and model caches under protected OS-local paths outside the versioned release directory. Config contains secrets and requires restricted permissions. No credentials are stored in the statistics database or report outbox; no audio/full transcripts are persisted.
+
+Data retires after the largest enabled report period, preserving only what unfinished shorter windows require; pending reports protect needed data. All-disabled reports have an explicit bounded retention setting. Local member deletion also discards queued snapshots that contain that member. Previously posted Discord messages and independently made backups require operator cleanup.
+
+Encoded dictionary data can be decoded by anyone; it is not encryption. Speech recognition can make mistakes and standings describe detected speech during actual listening, not perfect recall.
+
+The operator must review the [Discord Developer Policy](https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy) and [Developer Terms](https://support-dev.discord.com/hc/en-us/articles/8562894815383-Discord-Developer-Terms-of-Service), respect opt-outs and use data only for the disclosed function. These implementation safeguards are not a claim of legal compliance. Live tests are limited to an explicitly authorized disposable server with consented/synthetic speech; production servers are excluded.

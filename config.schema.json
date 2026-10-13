@@ -1,0 +1,335 @@
+{
+  "$defs": {
+    "Bot": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9_-]{0,31}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "token": {
+          "format": "password",
+          "title": "Token",
+          "type": "string",
+          "writeOnly": true
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "token"
+      ],
+      "title": "Bot",
+      "type": "object"
+    },
+    "Cadences": {
+      "additionalProperties": false,
+      "properties": {
+        "day": {
+          "default": false,
+          "title": "Day",
+          "type": "boolean"
+        },
+        "week": {
+          "default": true,
+          "title": "Week",
+          "type": "boolean"
+        },
+        "month": {
+          "default": true,
+          "title": "Month",
+          "type": "boolean"
+        },
+        "year": {
+          "default": true,
+          "title": "Year",
+          "type": "boolean"
+        }
+      },
+      "title": "Cadences",
+      "type": "object"
+    },
+    "FixedAssignment": {
+      "additionalProperties": false,
+      "properties": {
+        "bot": {
+          "pattern": "^[a-z][a-z0-9_-]{0,31}$",
+          "title": "Bot",
+          "type": "string"
+        },
+        "channel_id": {
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Channel Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bot",
+        "channel_id"
+      ],
+      "title": "FixedAssignment",
+      "type": "object"
+    },
+    "HeadHunt": {
+      "additionalProperties": false,
+      "properties": {
+        "interval_seconds": {
+          "default": 600,
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Interval Seconds",
+          "type": "number"
+        },
+        "priority_member_ids": {
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "title": "Priority Member Ids",
+          "type": "array"
+        },
+        "maximum_weight": {
+          "default": 10,
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Maximum Weight",
+          "type": "number"
+        },
+        "minimum_weight": {
+          "default": 1,
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Minimum Weight",
+          "type": "number"
+        },
+        "default_weight": {
+          "default": 1,
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Default Weight",
+          "type": "number"
+        }
+      },
+      "title": "HeadHunt",
+      "type": "object"
+    },
+    "Leaderboards": {
+      "additionalProperties": false,
+      "properties": {
+        "timezone": {
+          "default": "UTC",
+          "title": "Timezone",
+          "type": "string"
+        },
+        "sort_order": {
+          "default": "descending",
+          "enum": [
+            "ascending",
+            "descending"
+          ],
+          "title": "Sort Order",
+          "type": "string"
+        },
+        "scaled": {
+          "$ref": "#/$defs/Scaled"
+        },
+        "reports": {
+          "$ref": "#/$defs/Cadences"
+        },
+        "suppress_empty_reports": {
+          "default": true,
+          "title": "Suppress Empty Reports",
+          "type": "boolean"
+        },
+        "retention_days_when_reports_disabled": {
+          "default": 30,
+          "maximum": 366,
+          "minimum": 1,
+          "title": "Retention Days When Reports Disabled",
+          "type": "integer"
+        }
+      },
+      "title": "Leaderboards",
+      "type": "object"
+    },
+    "Privacy": {
+      "additionalProperties": false,
+      "properties": {
+        "notice_acknowledged": {
+          "default": false,
+          "title": "Notice Acknowledged",
+          "type": "boolean"
+        },
+        "excluded_member_ids": {
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "title": "Excluded Member Ids",
+          "type": "array"
+        },
+        "listening_notice": {
+          "default": "DisCuss processes voice locally for profanity standings; audio and full transcripts are discarded. Use opt-out or ask an administrator to disable monitoring or delete your local data.",
+          "maxLength": 1000,
+          "minLength": 20,
+          "title": "Listening Notice",
+          "type": "string"
+        }
+      },
+      "title": "Privacy",
+      "type": "object"
+    },
+    "Profanity": {
+      "additionalProperties": false,
+      "properties": {
+        "use_builtin_list": {
+          "default": true,
+          "title": "Use Builtin List",
+          "type": "boolean"
+        },
+        "custom_words": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "title": "Custom Words",
+          "type": "array"
+        }
+      },
+      "title": "Profanity",
+      "type": "object"
+    },
+    "Scaled": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "minimum_monitored_seconds": {
+          "default": 1800,
+          "maximum": 31622400,
+          "minimum": 0,
+          "title": "Minimum Monitored Seconds",
+          "type": "number"
+        }
+      },
+      "title": "Scaled",
+      "type": "object"
+    },
+    "Server": {
+      "additionalProperties": false,
+      "properties": {
+        "server_id": {
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Server Id",
+          "type": "string"
+        },
+        "primary_bot": {
+          "pattern": "^[a-z][a-z0-9_-]{0,31}$",
+          "title": "Primary Bot",
+          "type": "string"
+        },
+        "report_channel_id": {
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Report Channel Id",
+          "type": "string"
+        },
+        "mode": {
+          "default": "head_hunt",
+          "enum": [
+            "head_hunt",
+            "fixed_channels"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "monitoring_enabled": {
+          "default": true,
+          "title": "Monitoring Enabled",
+          "type": "boolean"
+        },
+        "voice_channels": {
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "title": "Voice Channels",
+          "type": "array"
+        },
+        "head_hunt": {
+          "$ref": "#/$defs/HeadHunt"
+        },
+        "assignments": {
+          "items": {
+            "$ref": "#/$defs/FixedAssignment"
+          },
+          "title": "Assignments",
+          "type": "array"
+        },
+        "profanity": {
+          "$ref": "#/$defs/Profanity"
+        },
+        "leaderboards": {
+          "$ref": "#/$defs/Leaderboards"
+        },
+        "privacy": {
+          "$ref": "#/$defs/Privacy"
+        }
+      },
+      "required": [
+        "server_id",
+        "primary_bot",
+        "report_channel_id"
+      ],
+      "title": "Server",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "bots": {
+      "items": {
+        "$ref": "#/$defs/Bot"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "title": "Bots",
+      "type": "array"
+    },
+    "servers": {
+      "items": {
+        "$ref": "#/$defs/Server"
+      },
+      "maxItems": 1000,
+      "minItems": 1,
+      "title": "Servers",
+      "type": "array"
+    },
+    "state_dir": {
+      "default": "state",
+      "minLength": 1,
+      "title": "State Dir",
+      "type": "string"
+    }
+  },
+  "required": [
+    "bots",
+    "servers"
+  ],
+  "title": "Config",
+  "type": "object"
+}
