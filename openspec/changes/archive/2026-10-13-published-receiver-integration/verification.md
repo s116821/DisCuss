@@ -1,0 +1,3 @@
+# Verification
+
+PyPI trusted publication succeeded in receiver run38490490573. The published 1.0.0 wheel and sdist hashes match the verified GitHub release, and receiver src/ has no differences from development commit b68549dd0b45435d7e7e12de5fd6e0982d107e86. DisCuss resolves and installs the independently published PyPI wheel through the refreshed uv.lock. All78 app tests, Ruff lint/format and ty passed; source fixtures still reject mutable archives and accept immutable commits, and the tagged native archive fixture identifies receiver1.0.0 without a source-build requirement. Required analyzer/spec/archive/build checks and both-OS CI accompany this PR. No readiness variables or live runtime/config changes are introduced.

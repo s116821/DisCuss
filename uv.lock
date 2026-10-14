@@ -510,18 +510,15 @@ voice = [
 
 [[package]]
 name = "discord-voice-reception"
-version = "0.0.0"
-source = { url = "https://github.com/s116821/DiscordVoiceReception/archive/b68549dd0b45435d7e7e12de5fd6e0982d107e86.tar.gz" }
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "davey" },
     { name = "discord-py", extra = ["voice"] },
 ]
-sdist = { hash = "sha256:a24931fd1c3dda53eb54282df8098cecd664ed00b86c9a64ea432be61198c2c8" }
-
-[package.metadata]
-requires-dist = [
-    { name = "davey", specifier = "==0.1.7" },
-    { name = "discord-py", extras = ["voice"], specifier = "==2.7.1" },
+sdist = { url = "https://files.pythonhosted.org/packages/e9/60/33ea4775046883fae67afb315544aa90f7373d1c36ca0c3ec43417710e57/discord_voice_reception-1.0.0.tar.gz", hash = "sha256:a3b86b83e054e538f5ea0355bb797a901690bbdb64caf5bd149e0537f6cb3fc2", size = 255564, upload-time = "2026-10-14T00:30:11.654Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/26/d4/3e0684ff25843112d89b4bec78bd6547333bb16f25901c8d4d95339f1eca/discord_voice_reception-1.0.0-py3-none-any.whl", hash = "sha256:22aef4cce104775d825106c0711b5a9886670afb86299caa82e0c1d116e3fa25", size = 25293, upload-time = "2026-10-14T00:30:10.285Z" },
 ]
 
 [[package]]
@@ -552,7 +549,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "discord-voice-reception", marker = "extra == 'runtime'", url = "https://github.com/s116821/DiscordVoiceReception/archive/b68549dd0b45435d7e7e12de5fd6e0982d107e86.tar.gz" },
+    { name = "discord-voice-reception", marker = "extra == 'runtime'", specifier = "==1.0.0" },
     { name = "faster-whisper", marker = "extra == 'runtime'", specifier = "==1.2.1" },
     { name = "filelock", marker = "extra == 'runtime'", specifier = ">=3.20" },
     { name = "numpy", marker = "extra == 'runtime'", specifier = ">=2.0" },
