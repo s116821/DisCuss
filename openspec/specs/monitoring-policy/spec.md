@@ -20,7 +20,7 @@ Each bot identity MUST have at most one fixed channel per server, with no duplic
 - **THEN** configuration is rejected before any connection attempt
 
 ### Requirement: Automatic Head Hunt channel discovery
-Head Hunt SHALL optionally consider every currently discovered ordinary voice channel in its configured server, without a maintained ID allowlist. Newly added or removed channels SHALL take effect at the next evaluation. Automatic scope MUST NOT also specify an explicit voice_channels list. Optional excluded channel IDs SHALL subtract candidates, while permission, capacity, member privacy and affinity filters remain enforced. Explicit channel lists SHALL remain the default; one primary identity listens in one selected channel at a time.
+Head Hunt SHALL optionally discover all current ordinary voice channels at each evaluation, including additions/removals. Automatic scope MUST use an empty voice_channels list. Optional excluded_channel_ids SHALL subtract candidates while permission, capacity, privacy and affinity filters remain enforced. Explicit channel lists SHALL remain the default; each primary bot listens in one selected channel at a time.
 
 #### Scenario: New channel is populated
 - **WHEN** automatic Head Hunt discovers a newly created populated accessible voice channel
