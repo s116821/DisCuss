@@ -1,0 +1,9 @@
+# Verification
+
+The three-job graph is enforced by a workflow regression check: quality has no OS matrix, build depends on quality, release depends on both and requires a main push; build/release contain no repeated code checks. PRs cannot enter publication. Platform installers remain restricted to disposable hosted runners, and use the saved new package plus two checksum-verified prior published releases.
+
+Local Windows verification: npm ci, uv locked runtime/dev sync, Ruff/format/ty, 87 offline pytest checks, uv wheel/sdist build, 13 cases against the actual release analyzer, plus actual-engine preview cases for docs/no-release, patch, minor and breaking releases. Preview checks use a deliberately stale local main reference and verify source tags/main remain untouched. Guard cases reject missing identity, different tag or different source. Artifact handoff tests prove byte preservation and reject source/version/checksum/unrecorded-file/metadata corruption before output is created. A case-insensitive Windows glob error was corrected and all tests passed.
+
+The workstation hook intermittently failed its GitHub identity lookup before running Git. The repo-local PowerShell wrapper now retries only that explicitly unexecuted operation, always invoking the original profile hook; native Git failures and completed operations are never replayed. Required checks passed with the hook active and process-scoped s116821 identity.
+
+The platform failure scenario is gated by needs on the entire build matrix; the mismatch scenario is guarded before semantic-release creates its public tag, with collected receipts checked before that step. No real Discord server, privileged native installation or reboot was used for local verification. Hosted PR/main runs provide native installer and final publication evidence; existing speech accuracy and genuine reboot qualification limits remain separate.

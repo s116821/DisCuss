@@ -45,7 +45,7 @@ def artifact_version(path: Path) -> str:
     return value
 
 
-def assemble(root: Path, output: Path, tag: str) -> list[Path]:
+def assemble(root: Path, output: Path, tag: str, platform: str | None = None) -> list[Path]:
     if not tag.startswith("v") or str(Version(tag[1:])) != tag[1:]:
         raise ValueError("Release tag must be v followed by the canonical package version")
     wheels = list(output.glob("*.whl"))
@@ -59,7 +59,9 @@ def assemble(root: Path, output: Path, tag: str) -> list[Path]:
     assets = wheels + sources
     if project == "discuss":
         receiver, requires_build = receiver_dependency(root)
-        for platform, suffix in (("windows-x64", "zip"), ("linux-x64", "gztar")):
+        for target, suffix in (("windows-x64", "zip"), ("linux-x64", "gztar")):
+            if platform is not None and platform != target:
+                continue
             with tempfile.TemporaryDirectory() as directory:
                 staging = Path(directory)
                 shutil.copy2(wheels[0], staging / wheels[0].name)
@@ -79,7 +81,7 @@ def assemble(root: Path, output: Path, tag: str) -> list[Path]:
                 manifest = {
                     "tag": tag,
                     "version": tag[1:],
-                    "platform": platform,
+                    "platform": target,
                     "python": "3.12.15",
                     "uv": "0.13.0",
                     "receiver": receiver,
@@ -93,7 +95,7 @@ def assemble(root: Path, output: Path, tag: str) -> list[Path]:
                     ),
                     encoding="utf-8",
                 )
-                archive = shutil.make_archive(str(output / f"DisCuss-{tag}-{platform}"), suffix, staging)
+                archive = shutil.make_archive(str(output / f"DisCuss-{tag}-{target}"), suffix, staging)
                 assets.append(Path(archive))
     checksums = output / "SHA256SUMS"
     checksums.write_text(
@@ -106,8 +108,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--output", type=Path, default=ROOT / "dist")
+    parser.add_argument("--platform", choices=("linux-x64", "windows-x64"))
     args = parser.parse_args()
-    for path in assemble(ROOT, args.output.resolve(), args.tag):
+    for path in assemble(ROOT, args.output.resolve(), args.tag, args.platform):
         print(path.name)
 
 

@@ -2,13 +2,13 @@
 
 Self-hosted Discord voice profanity competition, with one Python process coordinating one or multiple separately authorized bot identities.
 
-**Current status: qualification in progress.** Protected policy/statistics, one-process coordination, Discord adapters, local speech, privacy controls, reports, diagnostics and native boot installers are implemented. See [runtime setup and limits](docs/runtime.md) and [native install/upgrade guide](deploy/INSTALL.md). Live Discord, actual VM reboot and stable receiver publication are required before a functional release.
+**Current status: qualification in progress.** Protected policy/statistics, one-process coordination, Discord adapters, local speech, privacy controls, reports, diagnostics and native boot installers are implemented. See [runtime setup and limits](docs/runtime.md) and [native install/upgrade guide](deploy/INSTALL.md). Development releases publish automatically; broader live Discord and actual VM reboot qualification remain documented separately.
 
 See [configuration](docs/configuration.md), [statistics/operations](docs/statistics.md) and [privacy](docs/privacy.md). Run `discuss --config PATH doctor` for offline setup preflight. The example JSON intentionally contains placeholder setup; never put real credentials in the repository. Canonical tracking is the DisCuss Linear roadmap.
 
 [Broader synthetic measurements](docs/benchmarks/README.md) found missed detections and bounded overload. Recognition accuracy and sustained listener capacity remain unqualified; isolated successful clips cannot establish reliable competition counts.
 
-[Contextual detection reports](docs/detection-reporting.md) can optionally show speaker, recognized excerpt, time and match count. They default to the leaderboard channel, use three words on each side, and support interval digests or a separate channel. Enable only after explicit excerpt-publication acknowledgement; posted Discord text has different retention from local statistics.
+[Contextual detection reports](docs/detection-reporting.md) can optionally show speaker, recognized excerpt and time. They default to the leaderboard channel, use three words on each side, and support interval digests or a separate channel. Enable only after explicit excerpt-publication acknowledgement; posted Discord text has different retention from local statistics.
 
 ## Development
 
@@ -37,7 +37,7 @@ Use scoped Conventional Commit PR titles, e.g. `feat(receiver): add audio sinks`
 
 Git tags are the sole version source. Hatchling and uv-dynamic-versioning derive PEP 440 metadata; the runtime version helper reads importlib.metadata and falls back to 0.0.0. There is no editable version constant. The configured semantic-release 25 analyzer owns classification: breaking changes major, feats minor, configured maintenance patch, documentation alone no release.
 
-Every successful main-branch quality run automatically calls the reusable release workflow. Release-worthy development merges publish without readiness switches; docs-only changes do not release. The workflow creates the tag, builds from that tag, validates metadata, attaches SHA-256 checksums and GitHub artifact attestations in the same run. It does not depend on GITHUB_TOKEN tag events launching a separate workflow.
+The [three-stage pipeline](docs/releases.md) runs checks once, builds and validates Windows/Linux archives in parallel, then resolves and publishes releases from those saved artifacts. A read-only semantic-release preview supplies a local candidate tag for main builds; final resolution must match the checked source/version before creating a public tag. PRs finish after builds. Release-worthy main merges publish without readiness switches; docs-only changes do not release. SHA-256 checksums and GitHub attestations accompany the exact validated bytes in the same run.
 
 DisCuss GitHub Releases are the canonical application distribution. Lean OS archives contain the wheel, hashed dependencies, native installer/recovery helper, manifest, config example and operator guides. Models stay in external state. The release workflow records the exact receiver dependency, including an immutable development source when configured, and smoke tests the exact extracted assets on both OSes before attesting/uploading them. No managed hosting is planned.
 

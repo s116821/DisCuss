@@ -24,6 +24,8 @@ def smoke(
     second_upgrade: Path | None = None,
     *,
     tag: str = "v1.2.3",
+    upgrade_tag: str = "v1.2.4",
+    second_upgrade_tag: str = "v1.2.5",
 ) -> None:
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise RuntimeError("Privileged smoke is restricted to disposable GitHub-hosted runners")
@@ -126,11 +128,16 @@ def smoke(
         )
         install(broken, fail=True)
         if upgrade is not None:
-            second = unpack(upgrade, "v1.2.4", "second")
+            second = unpack(upgrade, upgrade_tag, "second")
             install(second)
             if second_upgrade is not None:
-                third = unpack(second_upgrade, "v1.2.5", "third")
+                third = unpack(second_upgrade, second_upgrade_tag, "third")
                 install(third)
+                admin_python(
+                    "import json,pathlib,subprocess,sys; r=pathlib.Path(sys.argv[1]); "
+                    'p=json.load(open(r/"current.json",encoding="utf-8-sig"))["python"]; '
+                    'assert subprocess.run([p,"-m","discuss.cli","--config",str(r/"config.json"),"run"]).returncode==0'
+                )
             install(second, "rollback")
         admin_python(
             'import pathlib,sqlite3,sys; r=pathlib.Path(sys.argv[1]); d=sqlite3.connect(r/"state/statistics.sqlite3"); '
@@ -151,10 +158,14 @@ if __name__ == "__main__":
     parser.add_argument("--upgrade", type=Path)
     parser.add_argument("--second-upgrade", type=Path)
     parser.add_argument("--tag", default="v1.2.3")
+    parser.add_argument("--upgrade-tag", default="v1.2.4")
+    parser.add_argument("--second-upgrade-tag", default="v1.2.5")
     args = parser.parse_args()
     smoke(
         args.assets.resolve(),
         args.upgrade.resolve() if args.upgrade else None,
         args.second_upgrade.resolve() if args.second_upgrade else None,
         tag=args.tag,
+        upgrade_tag=args.upgrade_tag,
+        second_upgrade_tag=args.second_upgrade_tag,
     )
