@@ -87,8 +87,8 @@ def test_actual_tag_build_and_release_assets(tmp_path: Path) -> None:
 
         with zipfile.ZipFile(repo / "dist/DisCuss-v1.2.3-windows-x64.zip") as bundle:
             manifest = json.loads(bundle.read("manifest.json"))
-            assert manifest["receiver_requires_build"] is True
-            assert "b68549dd0b45435d7e7e12de5fd6e0982d107e86" in manifest["receiver"]
+            assert manifest["receiver_requires_build"] is False
+            assert manifest["receiver"] == "1.0.0"
             assert "qualification-status.md" in bundle.namelist()
     with pytest.raises(ValueError, match="metadata does not match"):
         # Fresh build output: exclude the already created deployment tarball.

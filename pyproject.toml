@@ -15,7 +15,7 @@ discuss = "discuss.cli:main"
 
 [project.optional-dependencies]
 runtime = [
-    "discord-voice-reception",
+    "discord-voice-reception==1.0.0",
     "faster-whisper==1.2.1",
     "filelock>=3.20",
     "numpy>=2.0",
@@ -65,5 +65,3 @@ pythonpath = ["src", "."]
 [tool.ty.src]
 include = ["src"]
 
-[tool.uv.sources]
-discord-voice-reception = { url = "https://github.com/s116821/DiscordVoiceReception/archive/b68549dd0b45435d7e7e12de5fd6e0982d107e86.tar.gz" }

@@ -57,10 +57,7 @@ def test_development_bundle_installs_normally_and_corruption_is_rejected(tmp_pat
 
 
 def test_release_records_exact_sources_and_rejects_mutable_dependencies(tmp_path: Path) -> None:
-    root = Path(__file__).resolve().parents[1]
-    source, build = receiver_dependency(root)
-    assert "b68549dd0b45435d7e7e12de5fd6e0982d107e86" in source and build
-    for version in ("1.0.0rc1", "1.0.0.dev1", "1.2.3"):
+    for version in ("1.0.0", "1.0.0rc1", "1.0.0.dev1", "1.2.3"):
         (tmp_path / "pyproject.toml").write_text(
             '[project.optional-dependencies]\nruntime=["discord-voice-reception==' + version + '"]'
         )
@@ -70,11 +67,15 @@ def test_release_records_exact_sources_and_rejects_mutable_dependencies(tmp_path
     )
     with pytest.raises(ValueError, match="exact"):
         receiver_dependency(tmp_path)
-    for revision in ("main", "v1.2.3", "b68549dd"):
+    for revision in ("a" * 40, "main", "v1.2.3", "b68549dd"):
         (tmp_path / "pyproject.toml").write_text(
             '[project.optional-dependencies]\nruntime=["discord-voice-reception==0.0.0"]\n'
             '[tool.uv.sources]\ndiscord-voice-reception={url="https://github.com/s116821/'
             f'DiscordVoiceReception/archive/{revision}.tar.gz"}}'
         )
-        with pytest.raises(ValueError, match="immutable"):
-            receiver_dependency(tmp_path)
+        if len(revision) == 40:
+            source, build = receiver_dependency(tmp_path)
+            assert source.endswith(f"/{revision}.tar.gz") and build
+        else:
+            with pytest.raises(ValueError, match="immutable"):
+                receiver_dependency(tmp_path)
