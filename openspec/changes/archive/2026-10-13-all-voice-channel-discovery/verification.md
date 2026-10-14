@@ -1,0 +1,3 @@
+# Verification
+
+81 offline tests pass. Automatic scope tests cover channel additions/removals between evaluations, excluded/forbidden/full/empty/bot-only/unavailable-member channels, privacy exclusions, ambiguous explicit-list plus automatic mode, duplicate exclusions and unchanged explicit-list behavior. The SDK already discovers current ordinary voice channels at every evaluation; no new production-server voice test is performed. Ruff lint/format and ty pass; schema/example are regenerated and checked. Required analyzer/spec/archive/build and Windows/Linux CI accompany this PR. Operational deployment is explicitly authorized in the real server; acceptance tests remain offline or in the authorized temporary server.

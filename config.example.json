@@ -22,7 +22,9 @@
         "priority_member_ids": [],
         "maximum_weight": 10.0,
         "minimum_weight": 1.0,
-        "default_weight": 1.0
+        "default_weight": 1.0,
+        "all_channels": false,
+        "excluded_channel_ids": []
       },
       "assignments": [],
       "profanity": {
