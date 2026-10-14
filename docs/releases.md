@@ -1,0 +1,9 @@
+# Checks, builds and publication
+
+CI has three stages: **quality → build (Linux/Windows in parallel) → release**. Ruff, formatting, ty, pytest, semantic-release behavior, OpenSpec and synthetic speech run once on Linux. Platform jobs install runtime/build dependencies, produce one package build and their native archive, then test installation, failed candidates, two sequential upgrades, rollback and removal using two previous published releases and the saved new archive. They do not repeat Python code checks or build artificial versions.
+
+PRs finish after the platform builds. Main uses the actual semantic-release engine for a read-only candidate preview after checks. A local tag at the checked commit gives each build its candidate package version; it never reaches GitHub. PRs and documentation-only main commits build their normal Git-derived development version.
+
+Final publication verifies both saved artifact receipts, source commits, versions and checksums. Linux supplies the canonical wheel/sdist; both platforms supply their native archives. Publication regenerates the combined checksum file and attests the exact collected bytes. Semantic-release resolves the version again, and a pre-tag hook rejects any version/source mismatch before publication. Its GitHub plugin uploads those files without rebuilding. Main workflows are serialized, and a stale run safely publishes nothing when its source is behind main. Documentation-only commits do not publish.
+
+Installer acceptance requires two prior published DisCuss bundles; failure to download or verify them fails the build. All privileged acceptance runs on disposable GitHub-hosted runners, without Discord credentials. Speech measurement is synthetic and reports observed accuracy/capacity limits; it does not establish production accuracy or real reboot qualification. There are no manual release-readiness switches.
