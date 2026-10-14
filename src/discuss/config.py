@@ -53,6 +53,8 @@ class Bot(Model):
 
 
 class HeadHunt(Model):
+    all_channels: bool = False
+    excluded_channel_ids: list[Snowflake] = Field(default_factory=list)
     interval_seconds: float = Field(default=600, ge=1, le=86400)
     priority_member_ids: list[Snowflake] = Field(default_factory=list, max_length=10000)
     maximum_weight: float = Field(default=10, ge=0, le=1000000)
@@ -65,6 +67,8 @@ class HeadHunt(Model):
             raise ValueError("Minimum priority weight exceeds maximum")
         if len(set(self.priority_member_ids)) != len(self.priority_member_ids):
             raise ValueError("Priority members must be unique and ordered")
+        if len(set(self.excluded_channel_ids)) != len(self.excluded_channel_ids):
+            raise ValueError("Excluded voice channels must be unique")
         return self
 
 
@@ -171,8 +175,12 @@ class Server(Model):
         if len(set(self.voice_channels)) != len(self.voice_channels):
             raise ValueError("Eligible voice channels must be unique")
         if self.mode == "head_hunt":
-            if not self.voice_channels or self.assignments:
-                raise ValueError("Head Hunt requires eligible channels and no fixed assignments")
+            if self.assignments:
+                raise ValueError("Head Hunt cannot have fixed assignments")
+            if self.head_hunt.all_channels and self.voice_channels:
+                raise ValueError("Automatic Head Hunt cannot also have an explicit voice channel list")
+            if not self.head_hunt.all_channels and not self.voice_channels:
+                raise ValueError("Head Hunt requires eligible channels or automatic all-channel discovery")
         else:
             if not self.assignments:
                 raise ValueError("Fixed Channels requires assignments")

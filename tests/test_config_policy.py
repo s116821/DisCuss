@@ -118,6 +118,52 @@ def test_affinity_statistical_proportions() -> None:
     assert abs(count / 20000 - 0.75) < 0.02
 
 
+def test_automatic_scope_tracks_current_channels_and_preserves_filters() -> None:
+    data = config_data()
+    data["servers"][0].update(voice_channels=[], head_hunt={"all_channels": True, "excluded_channel_ids": ["40"]})
+    policy = validate_config(json.dumps(data)).servers[0]
+    occupied = (MemberPresence("100"),)
+    current = [ChannelPresence("30", occupied)]
+    assert affinities(policy, current) == {"30": 1}
+    current.append(ChannelPresence("35", occupied))
+    assert affinities(policy, current) == {"30": 1, "35": 1}
+    current.pop(0)
+    current.extend(
+        [
+            ChannelPresence("40", occupied),
+            ChannelPresence("50", occupied, permitted=False),
+            ChannelPresence("60", occupied, full=True),
+            ChannelPresence("70", ()),
+            ChannelPresence("80", (MemberPresence("200", is_bot=True),)),
+            ChannelPresence("90", (MemberPresence("300", can_transmit=False),)),
+        ]
+    )
+    assert affinities(policy, current) == {"35": 1}
+    policy.privacy.excluded_member_ids = ["100"]
+    assert choose_channel(policy, current, 0) is None
+
+
+def test_automatic_scope_rejects_ambiguous_or_duplicate_configuration() -> None:
+    data = config_data()
+    data["servers"][0]["head_hunt"] = {"all_channels": True}
+    with pytest.raises(ConfigError, match="explicit"):
+        validate_config(json.dumps(data))
+    data["servers"][0]["voice_channels"] = []
+    data["servers"][0]["head_hunt"]["excluded_channel_ids"] = ["40", "40"]
+    with pytest.raises(ConfigError, match="unique"):
+        validate_config(json.dumps(data))
+    data["servers"][0]["head_hunt"] = {}
+    with pytest.raises(ConfigError, match="eligible"):
+        validate_config(json.dumps(data))
+
+
+def test_explicit_scope_can_exclude_channels_without_enabling_discovery() -> None:
+    policy = server()
+    policy.head_hunt.excluded_channel_ids = ["10"]
+    channels = [ChannelPresence(c, (MemberPresence("100"),)) for c in ("10", "20", "30")]
+    assert affinities(policy, channels) == {"20": 1}
+
+
 def test_doctor_missing_and_valid_config(tmp_path: Path, monkeypatch, capsys) -> None:
     assert main(["--config", str(tmp_path / "missing.json"), "doctor"]) == 2
     path = tmp_path / "config.json"

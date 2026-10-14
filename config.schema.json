@@ -145,6 +145,19 @@
     "HeadHunt": {
       "additionalProperties": false,
       "properties": {
+        "all_channels": {
+          "default": false,
+          "title": "All Channels",
+          "type": "boolean"
+        },
+        "excluded_channel_ids": {
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "title": "Excluded Channel Ids",
+          "type": "array"
+        },
         "interval_seconds": {
           "default": 600,
           "maximum": 86400,

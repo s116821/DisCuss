@@ -10,7 +10,7 @@ Linux config requires 0600 permissions. Windows preflight rejects broad Everyone
 
 ## Policy defaults
 
-Head Hunt uses one primary_bot and voice_channels. Evaluation interval defaults to 600 seconds. Ordered priority_member_ids interpolate maximum_weight=10 to minimum_weight=1; unlisted humans use default_weight=1. One priority member gets maximum; zero total affinity idles. Bots, excluded/unavailable members and forbidden/full/empty channels contribute no score.
+Head Hunt uses one primary_bot and an explicit voice_channels list by default. To roam all accessible ordinary voice channels, set head_hunt.all_channels=true and voice_channels=[]; newly created/removed channels take effect at the next evaluation without editing IDs. Optional head_hunt.excluded_channel_ids subtracts channels from either scope. One bot listens in one selected channel at a time. Evaluation interval defaults to600seconds. Ordered priority_member_ids interpolate maximum_weight=10 to minimum_weight=1; unlisted humans use default_weight=1. One priority member gets maximum; zero total affinity idles. Bots, excluded/unavailable members and forbidden/full/empty channels contribute no score.
 
 Fixed Channels uses mode=fixed_channels and assignments with bot/channel_id. Each bot and channel appears once per server; the primary bot is assigned too. Separately create and authorize secondary applications and declare distinct enabled credentials before referencing them. The same policy supports one or several listeners. Runtime reconciliation comes in the coordinator PR.
 

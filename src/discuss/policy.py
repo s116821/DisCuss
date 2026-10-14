@@ -39,7 +39,12 @@ def affinities(server: Server, channels: list[ChannelPresence]) -> dict[str, flo
     excluded = set(server.privacy.excluded_member_ids)
     scores = {}
     for channel in sorted(channels, key=lambda c: int(c.channel_id)):
-        if channel.channel_id not in server.voice_channels or not channel.permitted or channel.full:
+        if (
+            (not server.head_hunt.all_channels and channel.channel_id not in server.voice_channels)
+            or channel.channel_id in server.head_hunt.excluded_channel_ids
+            or not channel.permitted
+            or channel.full
+        ):
             continue
         humans = {
             m.member_id for m in channel.members if not m.is_bot and m.can_transmit and m.member_id not in excluded

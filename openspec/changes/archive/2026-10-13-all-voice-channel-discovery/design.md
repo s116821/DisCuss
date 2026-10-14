@@ -1,0 +1,3 @@
+# Design
+
+Default all_channels=false preserves existing channel allowlists. With all_channels=true, voice_channels must be empty to prevent ambiguous ignored configuration. Optional excluded_channel_ids subtract channels in either Head Hunt scope. The SDK already returns the server's current ordinary voice channels on every evaluation; selection uses that current list, never a startup snapshot. Stage channels remain unsupported. Existing forbidden/full/empty/unavailable/excluded/opted-out-member filters and weighted draw remain unchanged. One primary bot listens in one selected channel at a time; the default evaluation interval remains600seconds. Fixed assignments retain their existing behavior.
