@@ -89,6 +89,15 @@ class Store:
     def close(self) -> None:
         self.db.close()
 
+    def detection_members(self, server: str, start: datetime, end: datetime) -> set[str]:
+        return {
+            row[0]
+            for row in self.db.execute(
+                "SELECT DISTINCT member FROM events WHERE server=? AND at>=? AND at<?",
+                (server, utc_microseconds(start), utc_microseconds(end)),
+            )
+        }
+
     def disabled(self, server: str) -> bool:
         row = self.db.execute("SELECT disabled FROM controls WHERE server=?", (server,)).fetchone()
         return row is not None and bool(row[0])

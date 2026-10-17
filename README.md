@@ -1,14 +1,18 @@
 # DisCuss
 
+![DisCuss pirate ship in Discord colors](docs/assets/discuss-banner.svg)
+
 Self-hosted Discord voice profanity competition, with one Python process coordinating one or multiple separately authorized bot identities.
 
-**Current status: qualification in progress.** Protected policy/statistics, one-process coordination, Discord adapters, local speech, privacy controls, reports, diagnostics and native boot installers are implemented. See [runtime setup and limits](docs/runtime.md) and [native install/upgrade guide](deploy/INSTALL.md). Development releases publish automatically; broader live Discord and actual VM reboot qualification remain documented separately.
+**Current status: working Windows deployment; broader qualification continues.** Protected policy/statistics, one-process coordination, Discord adapters, local speech, privacy controls, reports, diagnostics and native boot installers are implemented. See [runtime setup and limits](docs/runtime.md) and [native install/upgrade guide](deploy/INSTALL.md). Development releases publish automatically; broader live Discord and actual VM reboot qualification remain documented separately.
 
 See [configuration](docs/configuration.md), [statistics/operations](docs/statistics.md) and [privacy](docs/privacy.md). Run `discuss --config PATH doctor` for offline setup preflight. The example JSON intentionally contains placeholder setup; never put real credentials in the repository. Canonical tracking is the DisCuss Linear roadmap.
 
 [Broader synthetic measurements](docs/benchmarks/README.md) found missed detections and bounded overload. Recognition accuracy and sustained listener capacity remain unqualified; isolated successful clips cannot establish reliable competition counts.
 
 [Contextual detection reports](docs/detection-reporting.md) can optionally show speaker, recognized excerpt and time. They default to the leaderboard channel, use three words on each side, and support interval digests or a separate channel. Enable only after explicit excerpt-publication acknowledgement; posted Discord text has different retention from local statistics.
+
+[Sampled voice replays](docs/playback.md) optionally replay one short RAM-only curse clip per 15-minute cycle, using Head Hunt weights. [Quote lookup](docs/quote-history.md) searches the existing Discord report log by person and time without a local quote archive. Scheduled period reports can use `leaderboards.report_channel_id`; it defaults to the existing report channel.
 
 ## Development
 
@@ -21,11 +25,12 @@ uv run --extra runtime ruff check .
 uv run --extra runtime ruff format --check .
 uv run --extra runtime ty check
 uv run --extra runtime pytest
-npm run test:release
 npm run spec:validate
 uv run --extra runtime python scripts/check_openspec.py
 uv build
 ```
+
+Node manifests are required for OpenSpec and the actual semantic-release analyzer; Node is development/release tooling, not a bot runtime requirement. Python 3.12 is selected explicitly in CI and the native installers pin their managed runtime. `npm run test:release` remains an optional release-tool fixture suite rather than a code-check gate.
 
 PowerShell 7 is required for Git fixture operations so workstation identity profiles remain active. Tests use generated local data and do not connect to Discord. Do not use production servers for tests; later live qualification must explicitly opt in to a disposable server and never store third-party audio.
 

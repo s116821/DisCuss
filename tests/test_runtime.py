@@ -161,13 +161,15 @@ def test_local_backend_uses_local_files_and_native_resampling(tmp_path: Path, mo
 
         def transcribe(self, audio, **kwargs):
             calls["samples"] = len(audio)
-            return iter([SimpleNamespace(words=[SimpleNamespace(word="violet", start=0.1, probability=0.9)])]), None
+            return iter(
+                [SimpleNamespace(words=[SimpleNamespace(word="violet", start=0.1, probability=0.9, end=0.5)])]
+            ), None
 
     monkeypatch.setattr("discuss.speech.verify_model", lambda state, settings: tmp_path)
     monkeypatch.setattr(faster_whisper, "WhisperModel", Model)
     transcriber = LocalTranscriber(tmp_path, Transcription())
     chunk = SpeechChunk("1", "10", "100", "chunk", moment(), bytes(38400))
-    assert transcriber.transcribe(chunk) == [SpeechWord("violet", 0.1, 0.9)]
+    assert transcriber.transcribe(chunk) == [SpeechWord("violet", 0.1, 0.9, 0.5)]
     assert calls["loading"]["local_files_only"] is True
     assert calls["samples"] == 3200
 

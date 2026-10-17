@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 from .config import Config, Server
+from .playback import Target
 from .policy import ChannelPresence, choose_channel, fixed_assignments
 from .reporting import Scheduler
 from .speech import PipelineSink, SpeechPipeline
@@ -23,6 +24,8 @@ class Listener(Protocol):
     def current_channel(self, server: str) -> str | None: ...
     def connected(self, server: str) -> bool: ...
     def capture_ready(self, server: str) -> bool: ...
+    def play_clip(self, server: str, target: Target, pcm: bytes, done: Callable[[], None]) -> bool: ...
+    def stop_clip(self, server: str) -> None: ...
     async def assign(self, server: str, channel: str, sink: PipelineSink) -> None: ...
     async def release(self, server: str) -> None: ...
     async def notice(self, server: Server) -> None: ...
@@ -55,6 +58,15 @@ class Coordinator:
         self._report_retry: dict[str, float] = {}
         self.errors: dict[str, str] = {}
         self._lock = asyncio.Lock()
+        self.pipeline.playback.start = lambda server, target, pcm, done: self.listeners[target.listener].play_clip(
+            server, target, pcm, done
+        )
+
+        def stop_playback(server: str) -> None:
+            for worker in self.listeners.values():
+                worker.stop_clip(server)
+
+        self.pipeline.playback.stop = stop_playback
         self.pipeline.detection_feed.bind(
             lambda server, page: self.listeners[server.primary_bot].publish_detections(server, page),
             lambda server, member: self.listeners[
@@ -92,6 +104,7 @@ class Coordinator:
             )
             for server in self.config.servers:
                 self.pipeline.discard(server.server_id)
+                self.pipeline.playback.discard(server.server_id, force=True)
             self.config = self.pipeline.config = config
             self.pipeline.detection_feed.reconfigure(config)
             await asyncio.gather(*(worker.reconfigure(config) for worker in self.listeners.values()))
@@ -116,6 +129,21 @@ class Coordinator:
 
     async def report_tick(self, now: datetime, monotonic: float) -> None:
         self.pipeline.detection_feed.tick()
+        for server in self.config.servers:
+            targets = []
+            if not self.store.disabled(server.server_id):
+                for worker in self.listeners.values():
+                    if not worker.capture_ready(server.server_id):
+                        continue
+                    channel = worker.current_channel(server.server_id)
+                    for presence in self._channels(worker, server):
+                        if presence.channel_id == channel:
+                            targets.extend(
+                                Target(worker.name, channel, m.member_id)
+                                for m in presence.members
+                                if not m.is_bot and m.can_transmit
+                            )
+            self.pipeline.playback.tick(server, now, targets)
         # Report/segmentation timers can run while a voice connection awaits its handshake.
         for segmenter in self.pipeline.segmenters:
             segmenter.expire(now)
@@ -186,6 +214,7 @@ class Coordinator:
         current = worker.current_channel(server.server_id)
         try:
             if current is not None and current != target:
+                self.pipeline.playback.discard(server.server_id)
                 self.store.monitor(
                     worker.name,
                     server.server_id,

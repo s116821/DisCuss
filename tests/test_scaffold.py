@@ -55,7 +55,7 @@ def test_runtime_metadata_and_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_actual_tag_build_and_release_assets(tmp_path: Path) -> None:
     repo = tmp_path / "tagged"
     repo.mkdir()
-    for name in ("pyproject.toml", "README.md", "LICENSE", ".gitignore", ".python-version"):
+    for name in ("pyproject.toml", "README.md", "LICENSE", ".gitignore"):
         shutil.copy2(ROOT / name, repo / name)
     shutil.copytree(ROOT / "src", repo / "src", ignore=shutil.ignore_patterns("__pycache__"))
     if (ROOT / "deploy").exists():
@@ -120,7 +120,7 @@ def test_reference_analyzer_config_and_release_gate() -> None:
     assert not (ROOT / f"src/{MODULE}/release_policy.py").exists()
     ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     jobs = yaml.load(ci, Loader=yaml.BaseLoader)["jobs"]
-    for gate in ("ruff check", "ruff format --check", "ty check", "pytest", "test:release", "spec:validate"):
+    for gate in ("ruff check", "ruff format --check", "ty check", "pytest", "spec:validate"):
         assert gate in ci
     assert set(jobs) == {"quality", "build", "release"}
     assert "strategy" not in jobs["quality"]
@@ -149,3 +149,15 @@ def test_ruff_rejects_invalid_source(tmp_path: Path) -> None:
 def test_no_static_version_constant() -> None:
     source = (ROOT / f"src/{MODULE}/version.py").read_text(encoding="utf-8")
     assert not re.search(r"(?m)^__version__\s*=", source)
+
+
+def test_explicit_ci_python_and_optional_release_fixtures():
+    import yaml
+
+    root = Path(__file__).resolve().parents[1]
+    ci = yaml.safe_load((root / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    assert ci["env"]["UV_PYTHON"] == "3.12"
+    assert not (root / ".python-version").exists()
+    commands = " ".join(step.get("run", "") for step in ci["jobs"]["quality"]["steps"])
+    assert "test:release" not in commands
+    assert "test:release" in (root / "package.json").read_text(encoding="utf-8")

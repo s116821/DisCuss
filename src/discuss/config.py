@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from pathlib import Path
@@ -106,6 +107,7 @@ class Cadences(Model):
 
 
 class Leaderboards(Model):
+    report_channel_id: Snowflake | None = None
     timezone: str = "UTC"
     sort_order: Literal["ascending", "descending"] = "descending"
     scaled: Scaled = Field(default_factory=Scaled)
@@ -152,6 +154,21 @@ class DetectionReporting(Model):
         return self
 
 
+class Playback(Model):
+    enabled: bool = False
+    interval_seconds: float = Field(default=900, ge=5, le=86400)
+    mode: Literal["random", "cadence"] = "random"
+    max_clip_seconds: float = Field(default=8, ge=0.2, le=15)
+    context_seconds: float = Field(default=1.5, ge=0, le=5)
+
+    @model_validator(mode="after")
+    def safe_timing(self) -> Self:
+        if self.mode == "random" and self.interval_seconds < 60:
+            logging.getLogger(__name__).warning("Playback interval is too short for random timing; using cadence mode.")
+            self.mode = "cadence"
+        return self
+
+
 class Server(Model):
     server_id: Snowflake
     primary_bot: BotName
@@ -165,6 +182,7 @@ class Server(Model):
     leaderboards: Leaderboards = Field(default_factory=Leaderboards)
     privacy: Privacy = Field(default_factory=Privacy)
     detection_reporting: DetectionReporting = Field(default_factory=DetectionReporting)
+    playback: Playback = Field(default_factory=Playback)
 
     @model_validator(mode="after")
     def consistent_policy(self) -> Self:

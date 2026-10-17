@@ -202,6 +202,19 @@
     "Leaderboards": {
       "additionalProperties": false,
       "properties": {
+        "report_channel_id": {
+          "anyOf": [
+            {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Report Channel Id"
+        },
         "timezone": {
           "default": "UTC",
           "title": "Timezone",
@@ -236,6 +249,48 @@
         }
       },
       "title": "Leaderboards",
+      "type": "object"
+    },
+    "Playback": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "interval_seconds": {
+          "default": 900,
+          "maximum": 86400,
+          "minimum": 5,
+          "title": "Interval Seconds",
+          "type": "number"
+        },
+        "mode": {
+          "default": "random",
+          "enum": [
+            "random",
+            "cadence"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "max_clip_seconds": {
+          "default": 8,
+          "maximum": 15,
+          "minimum": 0.2,
+          "title": "Max Clip Seconds",
+          "type": "number"
+        },
+        "context_seconds": {
+          "default": 1.5,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Context Seconds",
+          "type": "number"
+        }
+      },
+      "title": "Playback",
       "type": "object"
     },
     "Privacy": {
@@ -370,6 +425,9 @@
         },
         "detection_reporting": {
           "$ref": "#/$defs/DetectionReporting"
+        },
+        "playback": {
+          "$ref": "#/$defs/Playback"
         }
       },
       "required": [

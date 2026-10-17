@@ -43,3 +43,10 @@ Standings and scheduled leaderboards SHALL show separated ranked totals and moni
 #### Scenario: Earlier queued report
 - **WHEN** an earlier ID-based report is pending
 - **THEN** publication removes word rows and replaces member IDs with resolved or neutral labels while preserving receipt identity
+
+### Requirement: Dedicated period-report destination
+Scheduled end-of-period reports SHALL support an optional dedicated text channel. With no override they MUST retain the server's base report destination. The override MUST NOT reroute detection alerts or alter ephemeral standings commands, snapshot identity, retry receipts or calendar boundaries. Destination access failures SHALL retain pending reports for retry.
+
+#### Scenario: Separate scheduled leaderboards
+- **WHEN** a dedicated period-report channel is configured
+- **THEN** scheduled leaderboards use it while detection alerts keep their independently configured/default destination

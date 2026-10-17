@@ -138,7 +138,10 @@ def test_scheduled_publish_resolves_rest_fallback_without_mentions(tmp_path):
         board = Standings((Rank("100", 2, 3600, 2),), (), {"100": {"violet": 2}})
         page = render(window(), board, reserve_names=True)[0]
         assert report_members(page) == {"100"}
+        cfg.servers[0].leaderboards.report_channel_id = "70"
+        server.get_channel = Mock(return_value=channel)
         await listener.publish(cfg.servers[0], page, "week", 0)
+        server.get_channel.assert_called_with(70)
         text = channel.send.call_args.args[0]
         assert "Stark ＠everyone" in text and "{{member:" not in text and "violet" not in text
         assert not channel.send.call_args.kwargs["allowed_mentions"].users

@@ -168,17 +168,21 @@ def render(instance: Instance, speaker: str, server: Server) -> str:
     at = instance.at.astimezone(ZoneInfo(server.leaderboards.timezone))
     stamp = f"{MONTHS[at.month - 1]} {at.day}, {at.year} @ {at.hour % 12 or 12}:{at.minute:02d} "
     stamp += f"{'am' if at.hour < 12 else 'pm'} {at.tzname()}"
-    return f"“{instance.quote}” — {safe_text(speaker, 64)}, {stamp}"
+    return f"“{instance.quote}” — [{safe_text(speaker, 64)}](https://discord.com/users/{instance.member}), {stamp}"
 
 
 def notice(server: Server, channel_name: str | None = None) -> str:
     settings = server.detection_reporting
-    if not settings.enabled:
-        return server.privacy.listening_notice
     destination = f"#{safe_text(channel_name)}" if channel_name else "the configured reporting channel"
     disclosure = f"excerpts go to {destination}"
     text = server.privacy.listening_notice
-    if text == Privacy.model_fields["listening_notice"].default:
+    if server.playback.enabled:
+        text = text.replace("audio/transcripts are discarded;", "captured RAM-only clips may replay after opt-out;")
+        if "captured RAM-only clips" not in text:
+            text += " Captured RAM-only clips may replay after opt-out."
+    if not settings.enabled:
+        return text
+    if server.privacy.listening_notice == Privacy.model_fields["listening_notice"].default:
         return text.replace("locally;", f"locally; {disclosure};", 1)
     return text + f" {disclosure[0].upper() + disclosure[1:]}."
 

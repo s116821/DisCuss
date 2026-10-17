@@ -45,7 +45,8 @@
           "year": true
         },
         "suppress_empty_reports": true,
-        "retention_days_when_reports_disabled": 30
+        "retention_days_when_reports_disabled": 30,
+        "report_channel_id": null
       },
       "privacy": {
         "notice_acknowledged": false,
@@ -62,6 +63,13 @@
         "max_pending_bytes": 1048576,
         "max_pending_age_seconds": 300.0,
         "max_pages_per_flush": 10
+      },
+      "playback": {
+        "enabled": false,
+        "interval_seconds": 900,
+        "mode": "random",
+        "max_clip_seconds": 8,
+        "context_seconds": 1.5
       }
     }
   ],
