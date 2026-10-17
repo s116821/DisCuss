@@ -133,6 +133,8 @@ try {
         $wheel = @(Get-ChildItem -LiteralPath $bundle -Filter '*.whl')
         if ($wheel.Count -ne 1) { throw 'Expected exactly one application wheel' }
         Checked $uv @('pip','install','--python',$python,'--no-deps',$wheel[0].FullName)
+        Checked $python @('-m','discuss.native_host')
+        $python = Join-Path $venv 'Scripts\DisCuss-Service.exe'
         Checked $python @('-c','import importlib.metadata,sys; assert importlib.metadata.version("discuss")==sys.argv[1]',$manifest.version)
         Checked $python @('-c','import av, numpy, faster_whisper; from discord.opus import Decoder; Decoder(); import discuss.application')
         if (-not (Test-Path -LiteralPath $config)) {

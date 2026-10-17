@@ -75,6 +75,8 @@ def assemble(root: Path, output: Path, tag: str, platform: str | None = None) ->
                     "privacy.md",
                     "runtime.md",
                     "detection-reporting.md",
+                    "playback.md",
+                    "quote-history.md",
                     "qualification-status.md",
                 ):
                     shutil.copy2(root / "docs" / name, staging / name)

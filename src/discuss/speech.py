@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 import uuid
 from collections import deque
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from fractions import Fraction
 from pathlib import Path
 from typing import Protocol
@@ -22,6 +23,7 @@ from .config import Config, Transcription
 from .detection_reporting import DetectionFeed
 from .lexicon import Lexicon, tokens
 from .models import verify_model
+from .playback import PlaybackController
 from .storage import Store
 
 
@@ -30,6 +32,7 @@ class SpeechWord:
     text: str = field(repr=False)
     start_seconds: float
     confidence: float | None = None
+    end_seconds: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,7 +102,7 @@ class LocalTranscriber:
             initial_prompt="Transcribe spoken words verbatim, including profanity.",
         )
         return [
-            SpeechWord(word.word, float(word.start), float(word.probability))
+            SpeechWord(word.word, float(word.start), float(word.probability), float(word.end))
             for segment in segments
             for word in segment.words or []
         ]
@@ -203,6 +206,8 @@ class SpeechPipeline:
     def __init__(self, config: Config, store: Store, transcriber: Transcriber) -> None:
         self.config, self.store, self.transcriber = config, store, transcriber
         self.detection_feed = DetectionFeed(config, store, self.allowed)
+        self.playback = PlaybackController(self.allowed)
+        self.last_inference_seconds = 0.0
         self.queue: deque[SpeechChunk] = deque()
         self.segmenters: set[Segmenter] = set()
         self._event = asyncio.Event()
@@ -228,6 +233,10 @@ class SpeechPipeline:
     @property
     def buffered_bytes(self) -> int:
         return sum(len(buffer.pcm) for segmenter in self.segmenters for buffer in segmenter.buffers.values())
+
+    @property
+    def oldest_capture_age_seconds(self) -> float:
+        return max(0.0, (datetime.now(UTC) - self.watermark(datetime.now(UTC))).total_seconds())
 
     def allowed(self, server: str, member: str) -> bool:
         policy = next((s for s in self.config.servers if s.server_id == server), None)
@@ -263,6 +272,7 @@ class SpeechPipeline:
 
     def discard(self, server: str, member: str | None = None) -> None:
         self.detection_feed.discard(server, member)
+        self.playback.discard(server, member)
         if (
             self._active is not None
             and self._active.server_id == server
@@ -290,8 +300,10 @@ class SpeechPipeline:
                 continue
             self._active = chunk
             try:
+                inference_start = time.perf_counter()
                 self._future = loop.run_in_executor(self._executor, self.transcriber.transcribe, chunk)
                 words = await asyncio.shield(self._future)
+                self.last_inference_seconds = time.perf_counter() - inference_start
                 policy = next(s for s in self.config.servers if s.server_id == chunk.server_id)
                 lexicon = Lexicon(policy.profanity.use_builtin_list, policy.profanity.custom_words)
                 text = " ".join(w.text for w in words)
@@ -312,6 +324,7 @@ class SpeechPipeline:
                         detection_times=match_times,
                     )
                     if added:
+                        self.playback.offer(policy, chunk, words, matches)
                         try:
                             self.detection_feed.offer(
                                 chunk.server_id,
@@ -337,6 +350,8 @@ class SpeechPipeline:
 
     async def close(self) -> None:
         self._closing = True
+        for server in self.config.servers:
+            self.playback.discard(server.server_id, force=True)
         await self.detection_feed.close()
         self.queue.clear()
         for segmenter in self.segmenters:

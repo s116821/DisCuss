@@ -19,3 +19,9 @@ profanity.use_builtin_list=true by default. custom_words=[] appends normalized e
 leaderboards defaults: timezone UTC, ISO Monday weeks, sort_order=descending; reports.day=false and week/month/year=true; scaled.enabled=true and minimum_monitored_seconds=1800 per member per selected period. Ascending reverses metric ordering with stable numeric member-ID ties. Empty reports are suppressed by default; empty day reports always are. When all reports are disabled, retention_days_when_reports_disabled=30 applies; configurable 1–366 days.
 
 Monitoring requires privacy.notice_acknowledged. monitoring_enabled=false disables assignments; privacy.excluded_member_ids excludes future processing. Runtime opt-out preferences have the same ingestion/exposure effect. Silence counts while genuinely monitored; server-muted/unavailable transmitters are excluded, rather than equating exposure with VAD speaking time.
+
+## Replay and separate scheduled reports
+
+`servers[].playback` defaults to disabled, `interval_seconds: 900`, `mode: "random"`, `max_clip_seconds: 8`, `context_seconds: 1.5`. See [replay lifecycle](playback.md) before enabling. No additional token or bot identity is required.
+
+`servers[].leaderboards.report_channel_id` is an optional destination for scheduled end-of-period leaderboards; null uses `servers[].report_channel_id`. This does not reroute detection reports or private commands. `detection_reporting.channel_id` remains its independent optional override. All destinations need View Channel and Send Messages. Quote lookup additionally needs Read Message History for bot and requester.

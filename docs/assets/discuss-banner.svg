@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="240" viewBox="0 0 960 240" role="img" aria-labelledby="title desc">
+  <title id="title">DisCuss — talk like a pirate, count like a bot</title>
+  <desc id="desc">A pirate ship sailing a dark Discord-colored sea beside the DisCuss wordmark.</desc>
+  <rect width="960" height="240" rx="24" fill="#23272a"/>
+  <path d="M0 195Q120 165 240 195T480 195T720 195T960 195V240H0Z" fill="#5865f2"/>
+  <path d="M54 156H250L222 192H90Z" fill="#99aab5"/>
+  <path d="M152 40V157M152 45L222 139H162Z" stroke="#f2f3f5" stroke-width="7" fill="#5865f2"/>
+  <path d="M142 61L77 140H142Z" fill="#f2f3f5"/>
+  <path d="M153 28H207L192 46H153Z" fill="#ed4245"/>
+  <circle cx="183" cy="103" r="12" fill="#f2f3f5"/>
+  <path d="M171 121L195 133M195 121L171 133" stroke="#f2f3f5" stroke-width="5"/>
+  <text x="300" y="110" fill="#f2f3f5" font-family="Segoe UI, sans-serif" font-size="64" font-weight="700">DisCuss</text>
+  <text x="302" y="151" fill="#b5bac1" font-family="Segoe UI, sans-serif" font-size="22">Talk like a pirate. Count like a bot.</text>
+</svg>

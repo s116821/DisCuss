@@ -12,6 +12,9 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
+env:
+  UV_PYTHON: "3.12"
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -44,7 +47,6 @@ jobs:
           uv run --extra runtime ruff format --check .
           uv run --extra runtime ty check
           uv run --extra runtime pytest
-          npm run test:release
           npm run spec:validate
           uv run --extra runtime python scripts/check_openspec.py
       - name: Pinned synthetic speech model

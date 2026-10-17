@@ -17,7 +17,7 @@ def prepare(output: Path, tag: str = "v1.2.3") -> None:
     output.mkdir(parents=True, exist_ok=False)
     with tempfile.TemporaryDirectory() as temporary:
         repo = Path(temporary)
-        for name in ("pyproject.toml", "README.md", "LICENSE", ".gitignore", ".python-version", "config.example.json"):
+        for name in ("pyproject.toml", "README.md", "LICENSE", ".gitignore", "config.example.json"):
             shutil.copy2(ROOT / name, repo / name)
         for name in ("src", "deploy", "docs"):
             shutil.copytree(ROOT / name, repo / name, ignore=shutil.ignore_patterns("__pycache__"))

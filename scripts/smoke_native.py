@@ -133,6 +133,14 @@ def smoke(
             if second_upgrade is not None:
                 third = unpack(second_upgrade, second_upgrade_tag, "third")
                 install(third)
+                if windows:
+                    admin_python(
+                        "import ctypes,pathlib,sys,discuss.application; "
+                        "b=ctypes.create_unicode_buffer(32768); "
+                        "ctypes.windll.kernel32.GetModuleFileNameW(None,b,len(b)); "
+                        "assert pathlib.Path(b.value).name=='DisCuss-Service.exe'; "
+                        "assert pathlib.Path(sys.prefix).name=='venv'"
+                    )
                 admin_python(
                     "import json,pathlib,subprocess,sys; r=pathlib.Path(sys.argv[1]); "
                     'p=json.load(open(r/"current.json",encoding="utf-8-sig"))["python"]; '

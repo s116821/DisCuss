@@ -1,6 +1,6 @@
 # Contextual detection reports (DEG-42)
 
-Detection reports are optional, disabled by default, and shared by every listener serving one server. The primary bot sends them to the leaderboard report_channel_id by default. Set detection_reporting.channel_id for a separate text channel. Each server retains its own destination, cadence and privacy policy within the single Python process.
+Detection reports are optional, disabled by default, and shared by every listener serving one server. The primary bot sends them to the base server report_channel_id by default. Set detection_reporting.channel_id for a separate text channel. Each server retains its own destination, cadence and privacy policy within the single Python process.
 
 Merge this fragment into an existing server entry (IDs are placeholders):
 
@@ -30,9 +30,9 @@ Three words per side means up to six surrounding words, seven including a one-wo
 
 Example with neutral custom tracked words:
 
-> “that **violet** word was **shade** today” — Stark, October 13, 2026 @ 5:26 pm CDT
+> “that **violet** word was **shade** today” — [Stark](https://discord.com/users/100), October 13, 2026 @ 5:26 pm CDT
 
-Each line puts the quote first, followed by an em dash, speaker name and the group's earliest detection in the source server's configured leaderboard timezone. Match counts remain internal and in standings rather than appearing in each alert. Names come from cached members, with a generic Member fallback if unavailable. Member/server/channel IDs remain internal routing metadata and are omitted from alerts. The notice resolves the destination to its cached text-channel name; if unavailable, it says the configured reporting channel without printing an ID. This is recognized text and may be wrong; a report does not prove what someone actually said.
+Each line puts the quote first, followed by an em dash, speaker profile link with a readable name and the group's earliest detection in the source server's configured leaderboard timezone. Match counts remain internal and in standings rather than appearing in each alert. Names come from cached members, with a generic Member fallback if unavailable. Raw IDs are never visible labels; the speaker profile link carries the account identifier for stable attribution. The notice resolves the destination to its cached text-channel name; if unavailable, it says the configured reporting channel without printing an ID. This is recognized text and may be wrong; a report does not prove what someone actually said.
 
 Interval 0 dispatches completed recognition without an additional batching delay. Nearby matches become one instance; multiple already pending instances can share a message. A positive interval (e.g. 60 seconds) starts with the first pending instance and combines that window into a multi-line digest. Empty windows send nothing. Digests paginate below 1900 UTF-16 units. Page budgets continue the same digest on later ticks rather than waiting another interval; new arrivals wait for their subsequent window. SDK rate limits can delay sends. Delivery runs independently of capture, counting and calendar reports, with mentions disabled, markup escaped and embeds suppressed.
 
@@ -44,4 +44,4 @@ Acknowledged pages leave memory and are not resent on normal retry. Failed pages
 
 Opt-outs, exclusions, monitoring disable and deletion suppress applicable pending excerpts. In-flight sends are cancelled where possible, but already accepted Discord text cannot be recalled by queue cleanup. CLI deletion removes backing chunk metadata, suppressing its queued quotes at the next check. Statistics retirement can remove backing chunks too. Already posted quotes follow Discord/channel retention and require operator removal after deletion requests; the service does not silently erase prior Discord messages.
 
-Use /discuss status or the local status snapshot for pending counts/bytes, drops/expiry and delivery failures; diagnostics contain no quote bodies. Missing destination permissions, disconnects and retries do not stop ordinary statistics/leaderboards. Verification uses offline synthetic fixtures; actual Discord output remains unqualified until the authorized temporary test setup is ready.
+Use /discuss status or the local status snapshot for pending counts/bytes, drops/expiry and delivery failures; diagnostics contain no quote bodies. Missing destination permissions, disconnects and retries do not stop ordinary statistics/leaderboards. The operator confirmed working detection reports on October 13; automated verification remains offline, and broader accuracy/load qualification is separate. See [quote history](quote-history.md) and [optional RAM-only replays](playback.md).

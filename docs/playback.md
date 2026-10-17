@@ -1,0 +1,11 @@
+# Sampled voice replays
+
+Replay is optional and disabled in shipped configuration. Set `servers[].playback.enabled` to `true` to use the defaults: a 900-second cycle, randomized listening/playback timing, at most eight seconds of audio and 1.5 seconds of context around a recognized curse.
+
+Each cycle samples one eligible person the bot currently hears. Selection uses the existing Head Hunt priority list and maximum/minimum/default weights, including in Fixed Channels mode. The bot chooses a random time to start accepting that person's curse clips and a random remaining time to replay the first qualifying clip. No curse or departure before capture means a silent cycle. It never records an unmonitored channel or moves independently of Head Hunt to chase the selected person.
+
+For fixed playback cadence, set `mode` to `"cadence"`: capture is eligible from the cycle start, and an acquired clip plays at the boundary. Random intervals below 60 seconds automatically become cadence and emit a warning. Intervals must be at least five seconds. Short cycles may be silent if recognition does not finish in time.
+
+One pending short clip per server stays in memory only. It never becomes an audio file, SQLite content, a log entry or a backup. Before capture, opt-out/deletion/disable, exclusion/departure or a changed channel cancels the selection. Once captured, a clip remains scheduled even if the person leaves or opts out. It only plays if the original listener is still connected to the original voice channel; it is never rerouted. Reload/shutdown discards RAM-only clips. Playback uses the existing in-process Discord encoder, without FFmpeg or another Python worker. Already transmitted voice cannot be recalled, and other Discord clients may record what they hear.
+
+The bot needs **Speak** in its current voice channel. Its processing notice discloses replay when enabled. Missing permissions or unavailable playback skips the clip and appears in diagnostics. Recognition and quote boundaries remain approximate; clips are cut to the available recognized chunk rather than retaining a continuous conversation recording.

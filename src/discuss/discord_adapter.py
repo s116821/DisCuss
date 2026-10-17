@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
-from collections.abc import Iterable
-from datetime import UTC, datetime
+from collections.abc import Callable, Iterable
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
@@ -16,7 +17,9 @@ from .calendar import window_at
 from .config import Bot, Config, Server
 from .coordinator import Coordinator
 from .detection_reporting import notice, safe_text
+from .playback import Target
 from .policy import ChannelPresence, MemberPresence
+from .quote_history import RESULT_LIMIT, SCAN_LIMIT, belongs, bounds, parse_line
 from .reporting import render, render_word_counts, report_members, resolve_page_names, standings
 from .speech import PipelineSink, SpeechPipeline
 from .storage import Store
@@ -24,6 +27,21 @@ from .storage import Store
 
 def permitted_admin(interaction: discord.Interaction) -> bool:
     return interaction.guild_id is not None and interaction.permissions.administrator
+
+
+class MemoryAudio(discord.AudioSource):
+    """A single bounded PCM clip, erased after use; Discord reads 20 ms frames."""
+
+    def __init__(self, pcm: bytes) -> None:
+        self.pcm, self.offset = pcm, 0
+
+    def read(self) -> bytes:
+        frame = self.pcm[self.offset : self.offset + 3840]
+        self.offset += len(frame)
+        return frame.ljust(3840, b"\0") if frame else b""
+
+    def cleanup(self) -> None:
+        self.pcm = b""
 
 
 class MemberSink:
@@ -86,6 +104,11 @@ class DiscordListener:
             policy = next((s for s in self.config.servers if s.server_id == server_id), None)
             if policy is None:
                 return
+            if before.channel != after.channel:
+                if self.client.user is not None and member.id == self.client.user.id:
+                    self.pipeline.playback.discard(server_id)
+                else:
+                    self.pipeline.playback.discard(server_id, str(member.id))
             channel_id = self.current_channel(server_id)
             occupants = next((c.members for c in self.channels(server_id) if c.channel_id == channel_id), ())
             healthy = (
@@ -208,14 +231,45 @@ class DiscordListener:
             raise
 
     async def release(self, server: str) -> None:
+        self.pipeline.playback.discard(server)
         self._expected_channels.pop(server, None)
         voice = self._voice(server)
         if voice is not None:
             await voice.disconnect(force=True)
 
-    def _report_channel(self, server: Server) -> discord.TextChannel:
+    def play_clip(self, server: str, target: Target, pcm: bytes, done: Callable[[], None]) -> bool:
+        voice = self._voice(server)
+        if (
+            voice is None
+            or not self.capture_ready(server)
+            or self.current_channel(server) != target.channel
+            or voice.is_playing()
+            or voice.is_paused()
+        ):
+            return False
+        instance = self.client.get_guild(int(server))
+        if instance is None or instance.me is None or not voice.channel.permissions_for(instance.me).speak:
+            return False
+        loop = asyncio.get_running_loop()
+        source = MemoryAudio(pcm)
+        try:
+            voice.play(source, after=lambda error: loop.call_soon_threadsafe(done))
+        except Exception:
+            source.cleanup()
+            raise
+        return True
+
+    def stop_clip(self, server: str) -> None:
+        voice = self._voice(server)
+        if voice is not None:
+            source = voice.source
+            voice.stop()
+            if isinstance(source, MemoryAudio):
+                source.cleanup()
+
+    def _report_channel(self, server: Server, channel_id: str | None = None) -> discord.TextChannel:
         instance = self.client.get_guild(int(server.server_id))
-        channel = instance.get_channel(int(server.report_channel_id)) if instance else None
+        channel = instance.get_channel(int(channel_id or server.report_channel_id)) if instance else None
         if not isinstance(channel, discord.TextChannel) or instance is None or instance.me is None:
             raise ValueError("Configured report channel is unavailable")
         permissions = channel.permissions_for(instance.me)
@@ -283,7 +337,7 @@ class DiscordListener:
     async def publish(self, server: Server, page: str, period: str, index: int) -> str:
         await self.resolve_members(server.server_id, report_members(page))
         page = resolve_page_names(page, lambda member: self.speaker_name(server.server_id, member))
-        message = await self._report_channel(server).send(
+        message = await self._report_channel(server, server.leaderboards.report_channel_id).send(
             page, allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True
         )
         return str(message.id)
@@ -300,7 +354,99 @@ class DiscordListener:
         for page in pages:
             await interaction.followup.send(page, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
 
+    async def quote_pages(
+        self,
+        interaction: discord.Interaction,
+        server: Server,
+        member: discord.Member,
+        since: str | None,
+        until: str | None,
+    ) -> list[str]:
+        start, end = bounds(since, until, server.leaderboards.timezone, datetime.now(UTC))
+        channel = self._report_channel(server, server.detection_reporting.channel_id)
+        guild = interaction.guild
+        requester = (
+            interaction.user
+            if isinstance(interaction.user, discord.Member)
+            else (guild.get_member(interaction.user.id) if guild else None)
+        )
+        if requester is None or guild is None or guild.me is None:
+            return ["Quote history requires current server membership."]
+        for person in (requester, guild.me):
+            permissions = channel.permissions_for(person)
+            if not permissions.view_channel or not permissions.read_message_history:
+                return ["You and the bot need View Channel and Read Message History in the detection channel."]
+        if self.client.user is None:
+            return ["The primary bot is not ready."]
+        rows, scanned, limited = [], 0, False
+        # Messages can be posted after recognition/batching. Match the timestamp
+        # inside the report, while bounding both the API scan and delayed window.
+        async for message in channel.history(
+            limit=SCAN_LIMIT,
+            after=start - timedelta(seconds=1),
+            before=end + timedelta(hours=1),
+            oldest_first=False,
+        ):
+            scanned += 1
+            if message.author.id != self.client.user.id:
+                continue
+            for line in message.content.splitlines():
+                parsed = parse_line(line, server.leaderboards.timezone)
+                if parsed is None:
+                    continue
+                quote, speaker, at = parsed
+                if start <= at < end and belongs(
+                    speaker, at, str(member.id), member.display_name, self.store, server.server_id
+                ):
+                    rows.append(
+                        f"“{quote}” — {safe_text(member.display_name, 64)}, "
+                        f"{at.astimezone(ZoneInfo(server.leaderboards.timezone)):%b %d, %Y @ %I:%M %p %Z} "
+                        f"· [original report]({message.jump_url})"
+                    )
+                    if len(rows) >= RESULT_LIMIT:
+                        limited = True
+                        break
+            if limited:
+                break
+        heading = f"**Published quotes — {safe_text(member.display_name, 64)}**"
+        if not rows:
+            rows = ["No attributable reports found in this range. Deleted or unavailable history cannot be recovered."]
+        pages, page = [], heading
+        for row in rows:
+            if len(page.encode("utf-16-le")) // 2 + len(row.encode("utf-16-le")) // 2 + 1 > 1800:
+                pages.append(page)
+                page = heading
+            page += "\n" + row
+        pages.append(page)
+        if limited or scanned >= SCAN_LIMIT:
+            pages.append("Search limit reached (20 results / 2,000 messages). Narrow the time range for more.")
+        return pages
+
     def _add_commands(self) -> None:
+        @self.commands.command(name="quotes", description="Find a member's published quotes in a time range")
+        @app_commands.describe(
+            since="ISO start date/time; defaults to seven days ago", until="Exclusive ISO end; defaults to now"
+        )
+        async def quotes(
+            interaction: discord.Interaction,
+            member: discord.Member,
+            since: str | None = None,
+            until: str | None = None,
+        ) -> None:
+            server = self._policy(interaction)
+            if server is None:
+                await self._reply(interaction, ["This command requires a configured Discord server."])
+                return
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
+            try:
+                pages = await self.quote_pages(interaction, server, member, since, until)
+            except ValueError as error:
+                pages = [str(error)]
+            except (discord.HTTPException, OSError):
+                pages = ["Discord report history is unavailable; check channel permissions and try again."]
+            await self._reply(interaction, pages)
+
         @self.commands.command(name="standings", description="Show total and scaled current-period standings")
         @app_commands.choices(period=[app_commands.Choice(name=p, value=p) for p in ("day", "week", "month", "year")])
         async def current(interaction: discord.Interaction, period: str = "week") -> None:
@@ -407,6 +553,17 @@ class DiscordListener:
             instance = self.client.get_guild(int(server.server_id))
             title = safe_text(instance.name, 64) if instance else "Server"
             rows = [f"**{title} — service status**", f"Speech processing ready: {self.pipeline.ready}"]
+            rows.append(
+                f"Speech queue: {len(self.pipeline.queue)} chunks; "
+                f"oldest capture {self.pipeline.oldest_capture_age_seconds:.1f}s; "
+                f"last recognition {self.pipeline.last_inference_seconds:.1f}s; "
+                f"drops {self.pipeline.dropped}; failures {self.pipeline.failures}"
+            )
+            rows.append(
+                f"Replay: {'enabled' if server.playback.enabled else 'disabled'}, {server.playback.interval_seconds}s "
+                f"{server.playback.mode}; played {self.pipeline.playback.played}, "
+                f"failed {self.pipeline.playback.failures}"
+            )
             feed = self.pipeline.detection_feed
             rows.append(
                 f"Detection feed: pending={sum(i.server == server.server_id for i in feed.pending)}, "

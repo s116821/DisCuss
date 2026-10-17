@@ -18,6 +18,11 @@ def write_health(root: Path, coordinator: Coordinator, *, running: bool = True) 
         "running": running,
         "speech_ready": pipeline.ready and running,
         "queue_depth": len(pipeline.queue),
+        "oldest_capture_age_seconds": round(pipeline.oldest_capture_age_seconds, 2),
+        "last_inference_seconds": round(pipeline.last_inference_seconds, 2),
+        "playback_started": pipeline.playback.played,
+        "playback_skipped": pipeline.playback.skipped,
+        "playback_failures": pipeline.playback.failures,
         "buffered_bytes": pipeline.buffered_bytes,
         "processed_chunks": pipeline.processed,
         "dropped_chunks": pipeline.dropped,
@@ -31,6 +36,7 @@ def write_health(root: Path, coordinator: Coordinator, *, running: bool = True) 
             {
                 "server_id": server.server_id,
                 "mode": server.mode,
+                "playback_enabled": server.playback.enabled,
                 "disabled": coordinator.store.disabled(server.server_id),
                 "listeners": [
                     {
