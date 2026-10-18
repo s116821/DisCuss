@@ -1,5 +1,7 @@
 # Roadmap implementation and qualification
 
+This is a dated implementation/acceptance snapshot from October 13, 2026, not an inventory of the latest deployment or features. Use [Discord setup](discord-setup.md), [runtime operations](runtime.md), [configuration](configuration.md), [playback](playback.md) and [quote lookup](quote-history.md) for current guidance. The historical observations below do not establish broader live or actual VM reboot qualification.
+
 October13,2026. All41 original DEG issues were retrieved from the DegenerateDevs DisCuss roadmap before implementation; DEG-42 adds contextual reporting and presentation refinements. The operator authorized bottom-up merging of the implementation stacks after temporary-server testing. Linked PRs and Linear issues record current merge/acceptance status. GitHub writes/commits use s116821 with its GitHub noreply identity, scoped process credentials and the workstation PowerShell identity hook. No shared account switch/global Git config change occurred.
 
 | Work | Review |

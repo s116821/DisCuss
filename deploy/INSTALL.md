@@ -32,13 +32,13 @@ NTFS ACLs give LocalService code read/execute, config read, state modify; Admini
 
 ```powershell
 $root = 'C:\ProgramData\DisCuss'
-$python = (Get-Content -LiteralPath "$root\current.json" -Raw | ConvertFrom-Json).python
+$python = (Get-Content -LiteralPath "$root\current.json" -Raw -Encoding UTF8 | ConvertFrom-Json).python
 & $python -m discuss.cli --config "$root\config.json" model-setup
 & $python -m discuss.cli --config "$root\config.json" doctor --runtime
 Start-ScheduledTask -TaskName DisCuss
 Get-ScheduledTask -TaskName DisCuss
 Get-ScheduledTaskInfo -TaskName DisCuss
-Get-Content -LiteralPath "$root\state\runtime.log" -Tail 100
+Get-Content -LiteralPath "$root\state\runtime.log" -Tail 100 -Encoding UTF8
 & $python -m discuss.cli status --state-dir "$root\state"
 Stop-ScheduledTask -TaskName DisCuss
 Disable-ScheduledTask -TaskName DisCuss
@@ -57,6 +57,10 @@ Explicit rollback restores the snapshot captured immediately before the last ver
 Rerunning the same verified archive preserves config/state and does not replace the previous-version rollback point. There is no automatic pruning of recovery snapshots or old releases. Removal is `sudo bash install.sh --operation uninstall` or ` .\install.ps1 -Operation Uninstall`: only startup is unregistered. Config, SQLite, models, logs, releases and backups remain. Explicit permanent data removal is an operator decision after backups/deletion obligations; the installer never recursively deletes these paths.
 
 ## Troubleshooting and qualification
+
+Configure each bot application's **Installation → Default Install Settings → Guild Install** scopes and requested permissions in the Developer Portal, including **Speak** for replay. Then verify the actual server-role and channel overrides, including private categories. See [Discord setup and mute/suppression troubleshooting](https://github.com/s116821/DisCuss/blob/main/docs/discord-setup.md). Native archives built from this revision include `discord-setup.md` beside this guide; for older bundles, use the online guide. Documentation-only merges do not publish replacement archives, so bundled updates ship with the next package release.
+
+Report destinations and playback intervals can be changed through a validated, private config replacement without restarting the process. The watcher releases/reconciles voice assignments, republishes the notice and discards pending excerpts and captured clips. Preserve the existing ACLs, validate a protected candidate with the installed interpreter's `-m discuss.cli --config CANDIDATE_PATH doctor`, and replace the config atomically. Protected Windows edits require an accepted UAC/elevated session; do not relax ACLs. Verify fresh health and actual channel access after reconnection. See [policy edits and separate report channels](https://github.com/s116821/DisCuss/blob/main/docs/configuration.md#editing-a-running-installation). Identity, token, model and state-directory changes require a restart. Publishing a release does not update an installed host automatically.
 
 Use doctor for schema/private ACL errors; use doctor --runtime for missing model/native dependencies. Tokens and exception input are redacted. A revoked token stops intentionally; resolve authorization then start again. Missing primary report permissions prevent the notice and listening. Receiver not ready, queue pressure or identity disconnect closes monitored exposure. Reports remain durable for retry; lost external acknowledgements have documented at-least-once ambiguity. See statistics.md for calendar/retention and privacy.md for notice/opt-out/deletion.
 
