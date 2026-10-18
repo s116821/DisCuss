@@ -70,7 +70,7 @@ def belongs(speaker: str, at: datetime, member: str, display_name: str, store: S
     profile = PROFILE.fullmatch(speaker)
     if profile:
         return profile["member"] == member
-    # Legacy display names are mutable/non-unique: require the retained minimal
+    # Plain display names are mutable/non-unique: require the retained minimal
     # detection metadata to identify exactly this member in the displayed minute.
     return speaker == safe_text(display_name, 64) and store.detection_members(
         server, at, at + timedelta(minutes=1)

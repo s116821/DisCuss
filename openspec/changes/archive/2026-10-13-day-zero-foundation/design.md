@@ -2,7 +2,7 @@
 
 ## Context
 
-See proposal.md. The repositories have no existing package implementation. The exact reference is OnVelvetVelma main after PR #11.
+See proposal.md. The repositories have no existing package implementation. The baseline uses tag-derived package versions and automated quality-gated releases.
 
 ## Goals / Non-Goals
 

@@ -168,7 +168,7 @@ def render(instance: Instance, speaker: str, server: Server) -> str:
     at = instance.at.astimezone(ZoneInfo(server.leaderboards.timezone))
     stamp = f"{MONTHS[at.month - 1]} {at.day}, {at.year} @ {at.hour % 12 or 12}:{at.minute:02d} "
     stamp += f"{'am' if at.hour < 12 else 'pm'} {at.tzname()}"
-    return f"“{instance.quote}” — [{safe_text(speaker, 64)}](https://discord.com/users/{instance.member}), {stamp}"
+    return f"“{instance.quote}” — {safe_text(speaker, 64)}, {stamp}"
 
 
 def notice(server: Server, channel_name: str | None = None) -> str:
