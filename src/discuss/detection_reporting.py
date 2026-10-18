@@ -177,9 +177,9 @@ def notice(server: Server, channel_name: str | None = None) -> str:
     disclosure = f"excerpts go to {destination}"
     text = server.privacy.listening_notice
     if server.playback.enabled:
-        text = text.replace("audio/transcripts are discarded;", "captured RAM-only clips may replay after opt-out;")
-        if "captured RAM-only clips" not in text:
-            text += " Captured RAM-only clips may replay after opt-out."
+        text = text.replace("audio/transcripts are discarded;", "captured clips may replay after opt-out;")
+        if "captured clips" not in text:
+            text += " Captured clips may replay after opt-out."
     if not settings.enabled:
         return text
     if server.privacy.listening_notice == Privacy.model_fields["listening_notice"].default:
