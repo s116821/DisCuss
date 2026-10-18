@@ -112,7 +112,15 @@ def main() -> int:
     changed = None
     if base and set(base) != {"0"}:
         paths = git_output("diff", "--name-only", base, "HEAD", "--", "openspec/changes/archive").splitlines()
-        changed = {p.split("/")[3] for p in paths if len(p.split("/")) > 3}
+        # Historical prose edits do not revive requirements replaced years ago.
+        # Completion is still checked for every archive; recheck consistency
+        # when a delta or its supersession metadata actually changes.
+        changed = {
+            parts[3]
+            for path in paths
+            if len(parts := path.split("/")) > 4
+            and (parts[4] == "specs" or parts[4] in {".openspec.yaml", "supersedes.yaml"})
+        }
     errors = problems(ROOT, changed)
     for error in errors:
         print(error)

@@ -425,7 +425,8 @@ class DiscordListener:
     def _add_commands(self) -> None:
         @self.commands.command(name="quotes", description="Find a member's published quotes in a time range")
         @app_commands.describe(
-            since="ISO start date/time; defaults to seven days ago", until="Exclusive ISO end; defaults to now"
+            since="Start date/time or HH:MM today; leading zeros; ±HH:MM = UTC offset; server timezone default",
+            until="Exclusive end date/time or HH:MM today; leading zeros; ±HH:MM = UTC offset; default now",
         )
         async def quotes(
             interaction: discord.Interaction,
@@ -500,7 +501,8 @@ class DiscordListener:
             self.store.set_opt_out(server.server_id, member, True, datetime.now(UTC))
             self.pipeline.discard(server.server_id, member)
             await self._reply(
-                interaction, ["You are opted out. Existing statistics remain until deletion or retention."]
+                interaction,
+                ["You are opted out. Collected results and posted reports remain; opt_in resumes participation."],
             )
 
         @self.commands.command(name="opt_in", description="Resume future collection if server policy permits")
@@ -512,24 +514,6 @@ class DiscordListener:
             self.store.set_opt_out(server.server_id, str(interaction.user.id), False, datetime.now(UTC))
             await self._reply(
                 interaction, ["Opt-out preference cleared. Server exclusions and monitoring policy still apply."]
-            )
-
-        @self.commands.command(name="delete_self", description="Delete your local statistics and opt out")
-        async def delete_self(interaction: discord.Interaction) -> None:
-            server = self._policy(interaction)
-            if server is None:
-                await self._reply(interaction, ["This command requires a configured Discord server."])
-                return
-            member = str(interaction.user.id)
-            self.pipeline.discard(server.server_id, member)
-            self.store.delete_member(server.server_id, member)
-            self.store.set_opt_out(server.server_id, member, True, datetime.now(UTC))
-            await self._reply(
-                interaction,
-                [
-                    "Local statistics deleted; a minimal opt-out preference remains. "
-                    "Already posted messages/backups require operator cleanup."
-                ],
             )
 
         @self.commands.command(name="monitoring", description="Administrator: enable or disable server monitoring")

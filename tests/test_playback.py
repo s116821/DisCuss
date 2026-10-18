@@ -87,6 +87,27 @@ def test_cadence_and_no_capture_noop():
     assert len(calls) == 1 and replay.skipped == 1
 
 
+def test_random_replay_waits_for_delayed_capture_before_selecting_remaining_time():
+    values = iter([0.0, 0.1, 0.5])
+    replay, server = controller(lambda: next(values)), policy()
+    calls = []
+    replay.start = lambda s, t, pcm, done: calls.append(t) or True
+    replay.tick(server, NOW, [TARGET])
+    cycle = replay.cycles["1"]
+    # Listening has started, but acquisition/recognition is deliberately delayed.
+    replay.tick(server, NOW + timedelta(seconds=739), [TARGET])
+    assert cycle.clip is None and cycle.play_at is None and not calls
+    acquired = NOW + timedelta(seconds=740)
+    replay.clock = lambda: acquired
+    capture(replay, server, at=NOW + timedelta(seconds=700))
+    assert cycle.clip and acquired < cycle.play_at < cycle.end
+    assert cycle.play_at + timedelta(seconds=len(cycle.clip) / 192000) <= cycle.end
+    replay.tick(server, acquired, [TARGET])
+    assert not calls
+    replay.tick(server, cycle.play_at, [TARGET])
+    assert calls == [TARGET]
+
+
 @pytest.mark.parametrize("change", ["member", "channel", "disabled", "opt_out"])
 def test_selection_cancels_before_capture_but_captured_clip_survives(change):
     for captured in (False, True):

@@ -78,7 +78,7 @@ def test_context_grouping_original_case_punctuation_unicode_and_timezone() -> No
     server = configured().servers[0]
     server.leaderboards.timezone = "America/Chicago"
     line = render(group[0], "Stark", server)
-    assert line == f"“{group[0].quote}” — [Stark](https://discord.com/users/100), October 13, 2026 @ 5:26 pm CDT"
+    assert line == f"“{group[0].quote}” — Stark, October 13, 2026 @ 5:26 pm CDT"
     assert "(100)" not in line
     assert "cusses" not in line and "[server" not in line and " / channel" not in line
     assert group[0].quote not in repr(group[0])
@@ -116,10 +116,7 @@ def test_immediate_digest_speaker_separation_and_idempotence(tmp_path: Path) -> 
         await asyncio.sleep(0.02)
         assert len(pages) == 1 and pages[0].count(" — ") == 2
         assert pages[0].startswith("“") and "Detected speech" not in pages[0]
-        assert (
-            " — [Stark](https://discord.com/users/100)," in pages[0]
-            and " — [Other](https://discord.com/users/200)," in pages[0]
-        )
+        assert " — Stark," in pages[0] and " — Other," in pages[0]
         add(store, feed, "a")
         feed.tick()
         await asyncio.sleep(0)
@@ -153,7 +150,7 @@ def test_interval_empty_windows_and_bounded_queue(tmp_path: Path) -> None:
         clock[0] = 60
         feed.tick()
         await asyncio.sleep(0.02)
-        assert len(pages) == 1 and pages[0].count(" — [Member](https://discord.com/users/") == 2
+        assert len(pages) == 1 and pages[0].count(" — Member,") == 2
         clock[0] = 120
         feed.tick()
         await asyncio.sleep(0)
@@ -189,7 +186,7 @@ def test_pagination_partial_retry_and_no_local_quote_storage(tmp_path: Path) -> 
         feed.tick()
         await asyncio.wait_for(feed.tasks["1"], 2)
         assert len(pages) > 1 and all(units(page) <= 1900 for page in pages)
-        assert sum(page.count(" — [Member-") for page in pages) == 40
+        assert sum(page.count(" — Member-") for page in pages) == 40
         assert attempts.count(pages[0]) == 1 and not feed.pending
         assert all("@everyone" not in p for p in pages)
         assert "UNRELATEDMARKER" not in " ".join(store.db.iterdump())
@@ -377,7 +374,7 @@ def test_page_budget_drains_one_digest_and_defers_new_interval_items(tmp_path: P
         for _ in range(10):
             feed.tick()
             await asyncio.sleep(0.01)
-        assert sum(page.count(" — [Member-") for page in pages) == 40
+        assert sum(page.count(" — Member-") for page in pages) == 40
         assert [i.member for i in feed.pending] == ["999"]
         clock[0] = 121
         feed.tick()
@@ -467,7 +464,7 @@ def test_all_listeners_share_primary_feed_with_independent_servers(tmp_path: Pat
         await coordinator.report_tick(moment(), 0)
         await asyncio.sleep(0.02)
         assert len(primary.quotes) == len(secondary.quotes) == 1
-        assert primary.quotes[0][0] == "1" and primary.quotes[0][1].count(" — [primary-cached-name-") == 2
+        assert primary.quotes[0][0] == "1" and primary.quotes[0][1].count(" — primary-cached-name-") == 2
         assert secondary.quotes[0][0] == "2" and "secondary-cached-name-300" in secondary.quotes[0][1]
         assert "secondary-cached-name-300" not in primary.quotes[0][1]
         await coordinator.close(moment())

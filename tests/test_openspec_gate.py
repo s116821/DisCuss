@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pytest import MonkeyPatch
+from scripts import check_openspec
 from scripts.check_openspec import git_output, problems
 
 
@@ -59,6 +61,22 @@ def test_old_archives_can_be_superseded(tmp_path: Path) -> None:
     fixture(tmp_path)
     (tmp_path / "openspec/specs/example/spec.md").write_text("newer requirement", encoding="utf-8")
     assert problems(tmp_path, changed_archives=set()) == []
+
+
+def test_prose_edits_do_not_revive_old_deltas_but_delta_edits_are_checked(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    archive = fixture(tmp_path)
+    (tmp_path / "openspec/specs/example/spec.md").write_text("newer requirement", encoding="utf-8")
+    monkeypatch.setattr(check_openspec, "ROOT", tmp_path)
+    monkeypatch.setenv("OPENSPEC_BASE_SHA", "123abc")
+    prefix = archive.relative_to(tmp_path).as_posix()
+    for suffix, expected in (("proposal.md", 0), ("specs/example/spec.md", 1), ("supersedes.yaml", 1)):
+        monkeypatch.setattr(check_openspec, "git_output", lambda *args: f"{prefix}/{suffix}\n")
+        assert check_openspec.main() == expected
+    monkeypatch.setattr(check_openspec, "git_output", lambda *args: f"{prefix}/design.md\n")
+    (archive / "tasks.md").write_text("- [ ] Unfinished\n", encoding="utf-8")
+    assert check_openspec.main() == 1
 
 
 def test_explicit_same_pr_supersession_checks_replacement(tmp_path: Path) -> None:

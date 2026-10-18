@@ -2,7 +2,7 @@
 
 ## Why
 
-DisCuss currently contains only a README and license. Its first implementation must establish the agreed OnVelvetVelma engineering baseline before feature changes can merge (DEG-1).
+DisCuss currently contains only a README and license. Its first implementation must establish the documented Python packaging and automated release baseline before feature changes can merge (DEG-1).
 
 ## What Changes
 

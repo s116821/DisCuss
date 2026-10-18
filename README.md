@@ -48,4 +48,4 @@ DisCuss GitHub Releases are the canonical application distribution. Lean OS arch
 
 ## Provenance and license
 
-GPL-3.0-only; preserve the existing LICENSE. Engineering/versioning baseline adapted from s116821/OnVelvetVelma at commit a5964e3fe7d83e7a27d655c324a76eda28cb387c (corrected PR #11). No upstream voice-receiver code is included by this foundation. Any future upstream reuse must retain its original notices and attribution.
+GPL-3.0-only; preserve the existing LICENSE. No upstream voice-receiver code is included by this foundation. Any future upstream reuse must retain its original notices and attribution.

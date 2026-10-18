@@ -36,6 +36,71 @@ def test_time_bounds_and_dst():
     assert parse_line("“text” — Somebody, March 8, 2026 @ 2:30 am CST", "America/Chicago") is None
 
 
+def test_time_only_uses_server_today_and_honors_offsets():
+    start, end = bounds("14:30", "15:45", "America/Chicago", NOW)
+    assert start == NOW.replace(hour=19, minute=30) and end == NOW.replace(hour=20, minute=45)
+    start, end = bounds("14:30-07:00", "15:45-07:00", "America/Chicago", NOW)
+    assert start == NOW.replace(hour=21, minute=30) and end == NOW.replace(hour=22, minute=45)
+    # UTC and the supplied offset are already on the 18th; server-local today is still the 17th.
+    midnight = datetime(2026, 10, 18, 0, 30, tzinfo=UTC)
+    assert bounds("14:30+09:00", None, "America/Chicago", midnight)[0] == NOW.replace(hour=5, minute=30)
+    assert bounds("06:30", None, "Asia/Tokyo", NOW)[0] == NOW.replace(hour=21, minute=30)
+    assert bounds("14:30:15.125Z", None, "UTC", NOW)[0] == NOW.replace(
+        hour=14, minute=30, second=15, microsecond=125000
+    )
+    assert bounds("2026-10-17T14:30-05:00", None, "UTC", NOW)[0] == NOW.replace(hour=19, minute=30)
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["9:05", "09:5", "2026-1-07", "2026-10-7", "2026-10-17T9:05", "14:30-5:00", "14:30-05:60", "14:30+24:00"],
+)
+def test_bad_padding_and_offsets_have_actionable_hint(value):
+    with pytest.raises(ValueError) as error:
+        bounds(value, None, "America/Chicago", NOW)
+    message = str(error.value)
+    assert "Leading zeros" in message and "UTC timezone offset" in message and "America/Chicago" in message
+    assert "14:30-05:00" in message and "today" in message
+
+
+def test_time_only_preserves_clock_change_and_range_guards():
+    fold = datetime(2026, 11, 1, 12, tzinfo=UTC)
+    gap = datetime(2026, 3, 8, 12, tzinfo=UTC)
+    for now, value in [(fold, "01:30"), (gap, "02:30")]:
+        with pytest.raises(ValueError, match="clock change"):
+            bounds(value, None, "America/Chicago", now)
+    start, end = bounds("01:30-05:00", "01:30-06:00", "America/Chicago", fold)
+    assert end - start == timedelta(hours=1)
+    for since, until in [("16:00", "15:00"), ("14:30", "14:30"), (None, "23:59")]:
+        with pytest.raises(ValueError, match="past time range"):
+            bounds(since, until, "America/Chicago", NOW)
+
+
+def test_quote_command_returns_timestamp_guidance_without_reading_history(tmp_path):
+    async def run():
+        cfg = configured()
+        store = Store(tmp_path / "statistics.sqlite3")
+        pipeline = SpeechPipeline(cfg, store, Mock())
+        listener = DiscordListener(cfg.bots[0], cfg, store, pipeline)
+        replies = []
+
+        async def send(text, **kwargs):
+            replies.append(text)
+
+        interaction = SimpleNamespace(
+            guild_id=1,
+            response=SimpleNamespace(is_done=lambda: True),
+            followup=SimpleNamespace(send=send),
+        )
+        await listener.commands.get_command("quotes").callback(interaction, Mock(), "9:5", None)
+        assert len(replies) == 1 and "Leading zeros" in replies[0] and "UTC timezone offset" in replies[0]
+        await listener.close()
+        await pipeline.close()
+        store.close()
+
+    asyncio.run(run())
+
+
 def test_legacy_requires_unique_minimal_metadata_not_name_alone(tmp_path):
     store = Store(tmp_path / "statistics.sqlite3")
     at = NOW.replace(second=0)
