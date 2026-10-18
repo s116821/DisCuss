@@ -57,7 +57,7 @@ jobs:
         with:
           name: speech-metrics
           path: speech-metrics/*.json
-      - name: Read-only semantic-release candidate preview
+      - name: Resolve package version for builds
         id: plan
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node scripts/plan_release.mjs

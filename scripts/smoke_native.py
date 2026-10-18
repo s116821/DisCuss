@@ -52,10 +52,12 @@ def smoke(
 
         first = unpack(assets, tag, "first")
 
-        def install(bundle: Path, operation: str = "install", *, fail: bool = False) -> None:
+        def install(
+            bundle: Path, operation: str = "install", *, fail: bool = False, legacy_shell: bool = False
+        ) -> None:
             if windows:
                 args = [
-                    "pwsh",
+                    "powershell.exe" if legacy_shell else "pwsh",
                     "-File",
                     str(bundle / "install.ps1"),
                     "-Root",
@@ -67,10 +69,18 @@ def smoke(
                 ]
             else:
                 args = ["sudo", "bash", str(bundle / "install.sh"), "--root", str(root), "--operation", operation]
+            # The Actions pwsh host exports its own module paths. Let inbox
+            # Windows PowerShell discover its native Utility/ScheduledTasks
+            # modules instead of inheriting incompatible PowerShell 7 paths.
+            environment = (
+                {key: value for key, value in os.environ.items() if key.casefold() != "psmodulepath"}
+                if legacy_shell
+                else None
+            )
             if fail:
-                assert subprocess.run(args).returncode != 0
+                assert subprocess.run(args, env=environment).returncode != 0
             else:
-                run(*args)
+                subprocess.run(args, check=True, env=environment)
 
         def admin_python(code: str) -> None:
             # Linux install metadata is operator-only; read it as root too.
@@ -132,7 +142,9 @@ def smoke(
             install(second)
             if second_upgrade is not None:
                 third = unpack(second_upgrade, second_upgrade_tag, "third")
-                install(third)
+                # Prior releases were validated with pwsh. Exercise the current
+                # candidate with inbox Windows PowerShell 5.1 as operators do.
+                install(third, legacy_shell=windows)
                 if windows:
                     admin_python(
                         "import ctypes,pathlib,sys,discuss.application; "
