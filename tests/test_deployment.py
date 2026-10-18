@@ -1,13 +1,43 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
+import re
+import shutil
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 from deploy.manage_state import backup, copy_database, restore, verify_bundle
 from scripts.receiver_dependency import receiver_dependency
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows native argument passing")
+@pytest.mark.parametrize("shell", ["powershell.exe", "pwsh"])
+def test_actual_installer_metadata_check_survives_windows_shell_quoting(tmp_path, shell):
+    program = shutil.which(shell)
+    assert program is not None
+    installer = (Path(__file__).resolve().parents[1] / "deploy/install.ps1").read_text(encoding="utf-8")
+    check = next(line.strip() for line in installer.splitlines() if "importlib.metadata.version" in line)
+    checked = re.search(r"(?ms)^function Checked\(.*?^}", installer).group()
+    script = tmp_path / "installer quoted metadata.ps1"
+    script.write_text(
+        'param([string]$Python,[string]$Version)\n$ErrorActionPreference="Stop"\n'
+        + checked
+        + "\n"
+        + check.replace("$manifest.version", "$Version")
+        + "\n",
+        encoding="utf-8-sig",
+    )
+    result = subprocess.run(
+        [program, "-File", str(script), "-Python", sys.executable, "-Version", importlib.metadata.version("discuss")],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_backup_includes_wal_without_migrating_and_restore_replaces_pages(tmp_path: Path) -> None:
