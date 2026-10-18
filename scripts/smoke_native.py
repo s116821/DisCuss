@@ -69,10 +69,18 @@ def smoke(
                 ]
             else:
                 args = ["sudo", "bash", str(bundle / "install.sh"), "--root", str(root), "--operation", operation]
+            # The Actions pwsh host exports its own module paths. Let inbox
+            # Windows PowerShell discover its native Utility/ScheduledTasks
+            # modules instead of inheriting incompatible PowerShell 7 paths.
+            environment = (
+                {key: value for key, value in os.environ.items() if key.casefold() != "psmodulepath"}
+                if legacy_shell
+                else None
+            )
             if fail:
-                assert subprocess.run(args).returncode != 0
+                assert subprocess.run(args, env=environment).returncode != 0
             else:
-                run(*args)
+                subprocess.run(args, check=True, env=environment)
 
         def admin_python(code: str) -> None:
             # Linux install metadata is operator-only; read it as root too.
