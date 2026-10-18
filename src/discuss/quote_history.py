@@ -16,18 +16,35 @@ LINE = re.compile(
     r"(?P<year>\d{4}) @ (?P<hour>\d{1,2}):(?P<minute>\d{2}) (?P<ampm>am|pm) (?P<zone>[\w+:-]+)$"
 )
 PROFILE = re.compile(r"^\[.+\]\(https://discord\.com/users/(?P<member>\d+)\)$")
+CLOCK = r"[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\.[0-9]{1,6})?)?"
+OFFSET = r"(?:Z|[+-][0-9]{2}:[0-9]{2})?"
+TIME_INPUT = re.compile(CLOCK + OFFSET)
+DATED_INPUT = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[T ]" + CLOCK + OFFSET + r")?")
 
 
 def bounds(since: str | None, until: str | None, timezone: str, now: datetime) -> tuple[datetime, datetime]:
     zone = ZoneInfo(timezone)
+    today = now.astimezone(zone).date().isoformat()
+    hint = (
+        "Use YYYY-MM-DD, YYYY-MM-DDTHH:MM, HH:MM or HH:MM±HH:MM (for example 14:30-05:00). "
+        "Leading zeros are required: month/day/hour/minute use two digits (03, 08, 09:05). "
+        "The optional ±HH:MM suffix is a UTC timezone offset (e.g. -05:00 means UTC minus five hours). "
+        f"Without a date, use today in {timezone}; without an offset, use {timezone}."
+    )
 
     def parse(value: str | None, default: datetime) -> datetime:
         if not value:
             return default
+        value = value.strip()
+        if TIME_INPUT.fullmatch(value):
+            value = f"{today}T{value}"
+        offset = re.search(r"[+-][0-9]{2}:([0-9]{2})$", value)
+        if not DATED_INPUT.fullmatch(value) or offset is not None and int(offset[1]) >= 60:
+            raise ValueError(hint)
         try:
             result = datetime.fromisoformat(value)
         except ValueError:
-            raise ValueError("Use ISO dates/times, for example 2026-10-17 or 2026-10-17T14:30-05:00.") from None
+            raise ValueError(hint) from None
         if result.tzinfo is None:
             result = result.replace(tzinfo=zone)
             if result.utcoffset() != result.replace(fold=1).utcoffset():

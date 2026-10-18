@@ -1,6 +1,8 @@
 # Published quote lookup
 
-`/discuss quotes member since until` searches the configured detection reporting channel for that person's published reports. `member` is required. The optional ISO date/time range defaults to the past seven days; `until` is exclusive. Dates without an offset use the configured leaderboard timezone; clock-change times require an explicit offset.
+`/discuss quotes member since until` searches the configured detection reporting channel for that person's published reports. `member` is required. The optional range defaults to the past seven days; `until` is exclusive. Use `YYYY-MM-DD`, a full timestamp such as `2026-10-17T14:30-05:00`, or just `14:30` / `14:30-05:00`. Leading zeros are required: month, day, hour and minute each use two digits, such as `03`, `08`, `09:05`.
+
+The final `-05:00` is the UTC timezone offset (five hours behind UTC); `+02:00` means two hours ahead. Without a date, both endpoints assume today's date in the bot's configured leaderboard timezone, even when you supply an offset. Without an offset, the time uses that configured timezone, rather than guessing the user's timezone. Clock-change times require an explicit offset. Time-only ranges do not automatically cross midnight; supply dates for overnight searches. Seconds/fractions and `Z` (UTC) are also accepted.
 
 Only the primary bot's report messages count. New reports use plain-text speaker names. A plain-name report is included only when the current name matches and retained minimal detection events identify exactly that person in the displayed minute. Renaming or expired detection metadata can make those reports unavailable. Historical profile-linked reports remain readable by stable account identity. Ambiguous, deleted, malformed or unattributable history is skipped.
 

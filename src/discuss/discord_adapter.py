@@ -425,7 +425,8 @@ class DiscordListener:
     def _add_commands(self) -> None:
         @self.commands.command(name="quotes", description="Find a member's published quotes in a time range")
         @app_commands.describe(
-            since="ISO start date/time; defaults to seven days ago", until="Exclusive ISO end; defaults to now"
+            since="Start date/time or HH:MM today; leading zeros; ±HH:MM = UTC offset; server timezone default",
+            until="Exclusive end date/time or HH:MM today; leading zeros; ±HH:MM = UTC offset; default now",
         )
         async def quotes(
             interaction: discord.Interaction,
