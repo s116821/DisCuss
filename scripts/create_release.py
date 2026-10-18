@@ -70,6 +70,7 @@ def assemble(root: Path, output: Path, tag: str, platform: str | None = None) ->
                 for name in ("INSTALL.md", "install.sh", "install.ps1", "manage_state.py"):
                     shutil.copy2(root / "deploy" / name, staging / name)
                 for name in (
+                    "discord-setup.md",
                     "configuration.md",
                     "statistics.md",
                     "privacy.md",

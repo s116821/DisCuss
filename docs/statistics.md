@@ -14,7 +14,7 @@ Delivery preserves acknowledged page receipts across retry/restart and serialize
 
 Retention uses the largest enabled calendar period and preserves the tail needed by shorter open windows. For example, a week spanning December/January retains its December events and exposure after the yearly boundary. Pending unacknowledged old reports block retirement. Once all cadences are off, the explicit rolling-day policy applies.
 
-Local operations:
+Operator-only local operations (these require protected host/config access, not just a Discord account):
 
 ```sh
 discuss --config /protected/config.json standings --server SERVER_ID --period week
@@ -24,4 +24,4 @@ discuss --config /protected/config.json delete-member --server SERVER_ID --membe
 
 Delete removes that member's local detections, replay metadata, exposure and preferences; affected queued report snapshots are discarded. Already posted Discord messages require operator removal. Backups use SQLite's consistent backup API and never overwrite an existing destination. Restoring a backup is an explicit operator action with the application stopped.
 
-This core PR does not yet connect to Discord, transcribe speech, install a native service/task, or claim qualified delivery. The adapter must enforce the documented healthy occupancy and permission contracts.
+The [application runtime](runtime.md) connects Discord voice reception, local transcription and reporting, and the [native installers](https://github.com/s116821/DisCuss/blob/main/deploy/INSTALL.md) provide boot startup. Personal opt-out/in preserves collected statistics and posted reports; no member-facing deletion command is registered. Operator maintenance and normal retention still apply. Broader live/reboot qualification remains separate from these implemented paths.
