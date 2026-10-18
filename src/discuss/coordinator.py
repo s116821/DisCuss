@@ -214,7 +214,10 @@ class Coordinator:
         current = worker.current_channel(server.server_id)
         try:
             if current is not None and current != target:
-                self.pipeline.playback.discard(server.server_id)
+                if server.playback.mode == "first_curse":
+                    self.pipeline.playback.unassign(server.server_id, worker.name)
+                else:
+                    self.pipeline.playback.discard(server.server_id)
                 self.store.monitor(
                     worker.name,
                     server.server_id,

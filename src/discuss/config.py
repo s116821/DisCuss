@@ -157,15 +157,23 @@ class DetectionReporting(Model):
 class Playback(Model):
     enabled: bool = False
     interval_seconds: float = Field(default=900, ge=5, le=86400)
-    mode: Literal["random", "cadence"] = "random"
+    mode: Literal["random", "cadence", "first_curse"] = "random"
     max_clip_seconds: float = Field(default=8, ge=0.2, le=15)
     context_seconds: float = Field(default=1.5, ge=0, le=5)
+
+    @property
+    def cadence_timing(self) -> bool:
+        return self.mode == "cadence" or self.interval_seconds < 60
 
     @model_validator(mode="after")
     def safe_timing(self) -> Self:
         if self.mode == "random" and self.interval_seconds < 60:
             logging.getLogger(__name__).warning("Playback interval is too short for random timing; using cadence mode.")
             self.mode = "cadence"
+        elif self.mode == "first_curse" and self.interval_seconds < 60:
+            logging.getLogger(__name__).warning(
+                "Playback interval is too short for random timing; using cadence timing with first-curse eligibility."
+            )
         return self
 
 

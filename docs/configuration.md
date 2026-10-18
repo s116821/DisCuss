@@ -24,6 +24,8 @@ Monitoring requires privacy.notice_acknowledged. monitoring_enabled=false disabl
 
 `servers[].playback` defaults to disabled, `interval_seconds: 900`, `mode: "random"`, `max_clip_seconds: 8`, `context_seconds: 1.5`. See [replay lifecycle](playback.md) before enabling. No additional token or bot identity is required.
 
+Mode `random` selects one weighted speaker and randomizes listening/replay timing; `cadence` selects one weighted speaker and replays at the cycle boundary. Set `mode: "first_curse"` to use random timing while accepting the first qualifying detection processed from any currently monitored eligible speaker. It preserves one clip per server and the winning listener/channel. For intervals below 60 seconds, first-curse mode uses cadence timing while retaining all-speaker eligibility.
+
 `servers[].leaderboards.report_channel_id` is an optional destination for scheduled end-of-period leaderboards; null uses `servers[].report_channel_id`. This does not reroute detection reports or private commands. `detection_reporting.channel_id` remains its independent optional override. All destinations need View Channel and Send Messages. Quote lookup additionally needs Read Message History for bot and requester.
 
 ### Separate quotes and leaderboards

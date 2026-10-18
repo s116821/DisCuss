@@ -270,7 +270,8 @@
           "default": "random",
           "enum": [
             "random",
-            "cadence"
+            "cadence",
+            "first_curse"
           ],
           "title": "Mode",
           "type": "string"

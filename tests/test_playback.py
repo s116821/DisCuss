@@ -43,6 +43,14 @@ def test_defaults_and_short_interval_fallback(caplog):
         Playback(interval_seconds=0)
 
 
+def test_first_curse_config_retains_eligibility_with_short_cadence_timing(caplog):
+    normal = Playback(mode="first_curse", interval_seconds=600)
+    assert not normal.cadence_timing
+    short = Playback(mode="first_curse", interval_seconds=30)
+    assert short.mode == "first_curse" and short.cadence_timing
+    assert "cadence timing with first-curse eligibility" in caplog.text
+
+
 @pytest.mark.parametrize("draw,member", [(0.0, "100"), (0.8, "200"), (0.99, "300")])
 def test_weighted_current_participants(draw, member):
     server = policy()
@@ -154,7 +162,8 @@ def test_other_members_late_chunks_and_offline_start_cannot_supply_clip():
     assert replay.cycles["1"].end == NOW + timedelta(seconds=1800)
 
 
-def test_pipeline_to_memory_playback_after_member_leaves_or_opts_out(tmp_path):
+@pytest.mark.parametrize("mode", ["cadence", "first_curse"])
+def test_pipeline_to_memory_playback_after_member_leaves_or_opts_out(tmp_path, mode):
     import asyncio
 
     from discuss.coordinator import Coordinator
@@ -166,7 +175,7 @@ def test_pipeline_to_memory_playback_after_member_leaves_or_opts_out(tmp_path):
 
     async def run():
         data = config_data()
-        data["servers"][0]["playback"] = {"enabled": True, "mode": "cadence", "interval_seconds": 5}
+        data["servers"][0]["playback"] = {"enabled": True, "mode": mode, "interval_seconds": 5}
         cfg = validate_config(json.dumps(data))
         server = cfg.servers[0]
         server.profanity.use_builtin_list = False
@@ -212,6 +221,159 @@ def test_pipeline_to_memory_playback_after_member_leaves_or_opts_out(tmp_path):
         assert "audio/transcripts are discarded" not in notice(server)
         assert b"\x01\x00" * 1000 not in (tmp_path / "stats.sqlite3").read_bytes()
         await coordinator.close(NOW + timedelta(seconds=6))
+        store.close()
+
+    asyncio.run(run())
+
+
+def test_first_curse_random_window_first_acquired_wins_and_routes_secondary_listener():
+    values = iter([0.5, 0.5])  # Only listen-start and post-acquisition playback draws; no speaker draw.
+    replay, server = controller(lambda: next(values)), policy(mode="first_curse", interval_seconds=600)
+    other = Target("secondary", "20", "200")
+    server.head_hunt.priority_member_ids = ["100"]
+    server.head_hunt.default_weight = 0  # Weights do not exclude first-curse candidates.
+    replay.tick(server, NOW, [TARGET, other])
+    cycle = replay.cycles["1"]
+    assert cycle.target is None and NOW < cycle.listen_at < cycle.end
+    capture(replay, server, member="200", channel="20")  # Before listening begins.
+    assert cycle.clip is None and cycle.target is None and cycle.play_at is None
+    acquired = NOW + timedelta(seconds=450)
+    replay.clock = lambda: acquired
+    capture(replay, server, at=NOW + timedelta(seconds=400), member="200", channel="20")
+    saved = cycle.clip
+    assert saved and len(saved) <= 8 * 192000 and cycle.target == other
+    assert not cycle.candidates and acquired < cycle.play_at < cycle.end
+    assert cycle.play_at + timedelta(seconds=len(saved) / 192000) <= cycle.end
+    capture(replay, server, at=NOW + timedelta(seconds=350))  # Older speech, recognized later, cannot replace it.
+    assert cycle.target == other and cycle.clip is saved
+    calls = []
+    replay.start = lambda s, t, pcm, done: calls.append((t, pcm)) or True
+    replay.tick(server, acquired, [TARGET, other])
+    assert not calls
+    replay.tick(server, cycle.play_at, [TARGET])  # Captured clip survives departure.
+    replay.tick(server, cycle.play_at + timedelta(seconds=1), [TARGET])
+    assert calls == [(other, saved)] and replay.played == 1 and cycle.clip is None
+
+
+@pytest.mark.parametrize("change", ["opt_out", "departure", "channel", "exclusion"])
+def test_first_curse_candidate_changes_do_not_cancel_other_speakers(change):
+    replay, server = controller(), policy(mode="first_curse")
+    other = Target("primary", "10", "200")
+    replay.tick(server, NOW, [TARGET, other])
+    if change == "opt_out":
+        replay.allowed = lambda s, m: m != "100"
+        replay.discard("1", "100")
+    elif change == "exclusion":
+        replay.allowed = lambda s, m: m != "100"
+    else:
+        targets = [other] if change == "departure" else [Target("primary", "20", "100"), other]
+        replay.tick(server, replay.clock(), targets)
+    cycle = replay.cycles["1"]
+    capture(replay, server)
+    assert not cycle.captured and not cycle.consumed
+    capture(replay, server, member="200")
+    assert cycle.captured and cycle.target == other
+
+
+def test_first_curse_only_current_assignments_can_supply_and_new_arrivals_are_eligible():
+    replay, server = controller(), policy(mode="first_curse")
+    replay.tick(server, NOW, [TARGET])
+    capture(replay, server, member="200")
+    capture(replay, server, channel="20")
+    assert replay.cycles["1"].clip is None
+    replay.tick(server, replay.clock(), [])
+    capture(replay, server)  # All participants departed; no stale eligibility.
+    assert replay.cycles["1"].clip is None
+    arrival = Target("secondary", "20", "200")
+    replay.tick(server, replay.clock(), [arrival])
+    capture(replay, server, member="200", channel="10")
+    assert replay.cycles["1"].clip is None
+    capture(replay, server, member="200", channel="20")
+    assert replay.cycles["1"].target == arrival
+
+
+@pytest.mark.parametrize("setting", ["monitoring_enabled", "playback"])
+def test_first_curse_disabled_before_capture_rejects_offers(setting):
+    replay, server = controller(), policy(mode="first_curse")
+    replay.tick(server, NOW, [TARGET])
+    if setting == "playback":
+        server.playback.enabled = False
+    else:
+        server.monitoring_enabled = False
+    capture(replay, server)
+    assert replay.cycles["1"].clip is None
+    replay.tick(server, replay.clock(), [TARGET])
+    assert not replay.cycles
+
+
+def test_first_curse_expiry_and_short_interval_boundary():
+    replay, server = controller(), policy(mode="first_curse", interval_seconds=30)
+    other = Target("primary", "10", "200")
+    replay.tick(server, NOW, [TARGET, other])
+    cycle = replay.cycles["1"]
+    assert cycle.listen_at == NOW and cycle.target is None
+    capture(replay, server, member="200")
+    assert cycle.play_at == NOW + timedelta(seconds=30)
+    calls = []
+    replay.start = lambda s, t, pcm, done: calls.append(t) or done() or True
+    replay.tick(server, NOW + timedelta(seconds=29), [TARGET, other])
+    assert not calls
+    replay.tick(server, NOW + timedelta(seconds=30), [TARGET, other])
+    assert calls == [other]
+    replay.clock = lambda: NOW + timedelta(seconds=61)
+    capture(replay, server, at=NOW + timedelta(seconds=40))
+    assert replay.cycles["1"].clip is None
+    replay.tick(server, replay.clock(), [TARGET, other])
+    capture(replay, server, at=NOW + timedelta(seconds=40))  # Previous cycle speech cannot enter the next.
+    assert replay.cycles["1"].clip is None and replay.skipped == 1 and calls == [other]
+
+
+def test_first_curse_coordinator_handoff_preserves_other_listener_opportunity(tmp_path):
+    import asyncio
+
+    from discuss.coordinator import Coordinator
+    from discuss.speech import SpeechPipeline
+    from discuss.storage import Store
+    from test_runtime import Transcriber, Worker, presence
+
+    async def run():
+        data = config_data()
+        data["bots"].append({"name": "secondary", "token": "offline-secondary-" + "x" * 64})
+        data["servers"][0].update(
+            mode="fixed_channels",
+            assignments=[{"bot": "primary", "channel_id": "10"}, {"bot": "secondary", "channel_id": "20"}],
+            playback={"enabled": True, "mode": "first_curse"},
+        )
+        cfg = validate_config(json.dumps(data))
+        server = cfg.servers[0]
+        server.profanity.use_builtin_list = False
+        server.profanity.custom_words = ["violet"]
+        store = Store(tmp_path / "stats.sqlite3")
+        pipeline = SpeechPipeline(cfg, store, Transcriber())
+        pipeline.playback.clock = lambda: NOW + timedelta(seconds=1)
+        pipeline.playback.draw = lambda: 0
+        pipeline.start()
+        primary = Worker("primary", {"1": [presence("10", "100")]})
+        secondary = Worker("secondary", {"1": [presence("20", "200")]})
+        workers = {"primary": primary, "secondary": secondary}
+        coordinator = Coordinator(cfg, store, pipeline, workers, draw=lambda: 0, clock=lambda: NOW)
+        await coordinator.tick(NOW, 0)
+        cycle = pipeline.playback.cycles["1"]
+        assert set(cycle.candidates) == {TARGET, Target("secondary", "20", "200")}
+        primary.occupants["1"] = [presence("10")]
+        await coordinator.tick(NOW + timedelta(seconds=1), 1)
+        assert pipeline.playback.cycles["1"] is cycle
+        assert cycle.candidates == (Target("secondary", "20", "200"),)
+        capture(pipeline.playback, server)  # Stale released-listener speech is rejected.
+        assert cycle.clip is None
+        assert pipeline.submit(SpeechChunk("1", "20", "200", "clip", NOW, b"\x01\x00" * 192000))
+        for _ in range(100):
+            if pipeline.processed:
+                break
+            await asyncio.sleep(0.01)
+        assert cycle.clip and cycle.target == Target("secondary", "20", "200")
+        await coordinator.close(NOW + timedelta(seconds=2))
+        assert not pipeline.playback.cycles
         store.close()
 
     asyncio.run(run())
