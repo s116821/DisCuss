@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import signal
 import time
 from datetime import UTC, datetime
@@ -17,6 +18,8 @@ from .diagnostics import write_health
 from .discord_adapter import DiscordListener
 from .speech import LocalTranscriber, SpeechPipeline
 from .storage import Store
+
+log = logging.getLogger(__name__)
 
 
 def state_path(config: Config, config_path: Path) -> Path:
@@ -49,6 +52,12 @@ async def _run(config: Config, store: Store, transcriber: LocalTranscriber, conf
     pipeline = SpeechPipeline(config, store, transcriber)
     workers = {b.name: DiscordListener(b, config, store, pipeline) for b in config.bots if b.enabled}
     coordinator = Coordinator(config, store, pipeline, workers)
+
+    def loop_error(loop: asyncio.AbstractEventLoop, context: dict) -> None:
+        error = context.get("exception")
+        log.error("async_task_failed", exc_info=(type(error), error, error.__traceback__) if error else None)
+
+    asyncio.get_running_loop().set_exception_handler(loop_error)
     for worker in workers.values():
         worker.coordinator = coordinator
     pipeline.start()
@@ -57,12 +66,32 @@ async def _run(config: Config, store: Store, transcriber: LocalTranscriber, conf
     changed_at = config_path.stat().st_mtime_ns
 
     async def report_loop() -> None:
+        due = 0.0
         while True:
             write_health(store.path.parent, coordinator)
+            if time.monotonic() >= due:
+                log.info(
+                    "health_summary",
+                    extra={
+                        "healthy": pipeline.ready,
+                        "queue_depth": len(pipeline.queue),
+                        "processed_chunks": pipeline.processed,
+                        "speech_failures": pipeline.failures,
+                        "playback_started": pipeline.playback.played,
+                        "playback_failures": pipeline.playback.failures,
+                        "playback_skipped": pipeline.playback.skipped,
+                        "dropped_chunks": pipeline.dropped,
+                        "listeners_ready": sum(
+                            w.capture_ready(s.server_id) for w in workers.values() for s in coordinator.config.servers
+                        ),
+                    },
+                )
+                due = time.monotonic() + 60
             await coordinator.report_tick(datetime.now(UTC), time.monotonic())
             await asyncio.sleep(1)
 
     reports = asyncio.create_task(report_loop(), name="calendar-reports")
+    log.info("service_ready")
     stopping = asyncio.Event()
     loop = asyncio.get_running_loop()
     with contextlib.suppress(NotImplementedError):
@@ -70,7 +99,7 @@ async def _run(config: Config, store: Store, transcriber: LocalTranscriber, conf
     try:
         while not stopping.is_set():
             if all(w._task is not None and w._task.done() for w in workers.values()):
-                print("Listener identities stopped; verify bot authorization and network readiness.")
+                log.error("listener_identities_stopped")
                 return 0 if any(w.setup_failed for w in workers.values()) else 1
             try:
                 modification = config_path.stat().st_mtime_ns
@@ -81,18 +110,23 @@ async def _run(config: Config, store: Store, transcriber: LocalTranscriber, conf
                         raise ConfigError("Restart is required when the state directory changes")
                     await coordinator.reload(updated, datetime.now(UTC))
             except (OSError, ValueError):
-                print("Configuration reload rejected; check schema or restart for identity, speech or state changes.")
+                log.error("configuration_reload_rejected", exc_info=True)
                 return 0
             if reports.done():
-                print("Report scheduler stopped; restart after checking local state readiness.")
+                error = reports.exception()
+                log.error(
+                    "report_scheduler_stopped", exc_info=(type(error), error, error.__traceback__) if error else None
+                )
                 return 1
             await coordinator.tick(datetime.now(UTC), time.monotonic(), include_reports=False)
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stopping.wait(), 1)
         return 0
     finally:
+        log.info("service_stopping")
         reports.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await reports
         await coordinator.close(datetime.now(UTC))
         write_health(store.path.parent, coordinator, running=False)
+        log.info("service_stopped")

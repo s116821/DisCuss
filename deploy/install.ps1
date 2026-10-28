@@ -153,6 +153,12 @@ try {
     if ($LASTEXITCODE -eq 0) { Checked $candidate.python @('-m','discuss.cli','--config',$config,'doctor','--runtime') }
     elseif ($previousConfigReady) { throw 'Candidate rejects previously valid configuration; upgrade aborted' }
     if (-not $ProvisionOnly) {
+        Add-Type -AssemblyName System.Diagnostics.EventLog
+        if (-not [System.Diagnostics.EventLog]::SourceExists('DisCuss')) {
+            [System.Diagnostics.EventLog]::CreateEventSource('DisCuss','Application')
+        } elseif ([System.Diagnostics.EventLog]::LogNameFromSourceName('DisCuss','.') -ne 'Application') {
+            throw 'DisCuss event source is registered to an unexpected log'
+        }
         $action = New-ScheduledTaskAction -Execute $candidate.python -Argument ('-m discuss.cli --config "'+$config+'" --log-file "'+(Join-Path $state 'runtime.log')+'" run') -WorkingDirectory $Root
         $trigger = New-ScheduledTaskTrigger -AtStartup
         $identity = New-ScheduledTaskPrincipal -UserId 'S-1-5-19' -LogonType ServiceAccount -RunLevel Limited

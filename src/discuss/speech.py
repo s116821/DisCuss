@@ -337,9 +337,14 @@ class SpeechPipeline:
                             )
                         except Exception:
                             self.detection_feed.failures += 1
+                            logging.getLogger(__name__).warning("detection_queue_failed", exc_info=True)
                 self.processed += 1
+                if self._failed:
+                    logging.getLogger(__name__).info("speech_processing_recovered")
                 self._failed = False
             except Exception:
+                if not self._failed:
+                    logging.getLogger(__name__).error("speech_processing_failed", exc_info=True)
                 self.failures += 1
                 self._failed = True
             finally:

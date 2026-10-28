@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import json
-import os
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
 from .calendar import window_at
 from .config import Config, ConfigError, Transcription, check_private_file, load_config
 from .reporting import render, standings
+from .service_logging import ServiceLogging
 from .storage import Store
 from .version import service_version
 
@@ -42,22 +42,17 @@ def main(argv: list[str] | None = None) -> int:
     backup = commands.add_parser("backup")
     backup.add_argument("destination", type=Path)
     args = parser.parse_args(argv)
-    if args.log_file is not None:
+    if args.command == "run":
         try:
-            args.log_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            descriptor = os.open(args.log_file, os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o600)
-            os.close(descriptor)
-            check_private_file(args.log_file)
-            with args.log_file.open("a", encoding="utf-8", buffering=1) as stream:
-                with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
-                    return _execute(args)
+            with ServiceLogging(args.log_file) as session:
+                return _execute(args, session)
         except (ConfigError, OSError):
             print("Setup required: diagnostic log path must be writable and protected.")
             return 0 if args.command == "run" else 2
     return _execute(args)
 
 
-def _execute(args: argparse.Namespace) -> int:
+def _execute(args: argparse.Namespace, session: ServiceLogging | None = None) -> int:
     if args.command == "status":
         try:
             path = args.state_dir / "health.json"
@@ -98,21 +93,36 @@ def _execute(args: argparse.Namespace) -> int:
     try:
         config = load_config(args.config)
     except ConfigError as error:
+        if args.command == "run":
+            logging.getLogger(__name__).error("configuration_invalid", exc_info=True)
+            print("Setup required: validate the protected configuration with discuss doctor.")
+            return 0
         print(f"Setup required: {error}")
         return 0 if args.command == "run" else 2
     if args.command == "run":
         try:
-            from .application import run_application
+            from .application import run_application, state_path
 
+            if session:
+                session.configure(config, state_path(config, args.config))
+            logging.getLogger(__name__).info(
+                "service_starting",
+                extra={
+                    "configured_level": config.logging.level,
+                    "version": service_version(),
+                },
+            )
             return run_application(config, args.config)
         except (ConfigError, ImportError):
-            print(
-                "Setup required: verify protected configuration, runtime dependencies and prepared local speech model."
-            )
+            logging.getLogger(__name__).error("runtime_setup_required", exc_info=True)
+            print("Setup required: verify protected config, runtime dependencies and the prepared speech model.")
             return 0
         except KeyboardInterrupt:
-            print("DisCuss stopped.")
+            logging.getLogger(__name__).info("service_interrupted")
             return 0
+        except Exception:
+            logging.getLogger(__name__).error("service_failed", exc_info=True)
+            return 1
     if args.command == "doctor":
         if args.runtime:
             try:

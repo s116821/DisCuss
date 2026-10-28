@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import random
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
     from .speech import SpeechChunk, SpeechWord
 
 PCM_BYTES_PER_SECOND = 192000
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,14 +122,28 @@ class PlaybackController:
                     started = False
                 if started:
                     self.played += 1
+                    log.info(
+                        "playback_started",
+                        extra={
+                            "server": key,
+                            "channel": target.channel,
+                            "identity": target.listener,
+                            "duration_seconds": len(clip) / PCM_BYTES_PER_SECOND,
+                        },
+                    )
                 else:
                     done()
                     self.failures += 1
+                    log.warning(
+                        "playback_unavailable",
+                        extra={"server": key, "channel": target.channel, "identity": target.listener},
+                    )
             else:
                 self.skipped += 1
         if cycle is None or now >= cycle.end:
             if cycle is not None and not cycle.consumed:
                 self.skipped += 1
+                log.info("playback_cycle_silent", extra={"server": key, "reason": "no_qualifying_clip"})
             if not targets:
                 self.cycles.pop(key, None)
                 return
@@ -140,6 +156,15 @@ class PlaybackController:
             listen_at = start + timedelta(seconds=0 if settings.cadence_timing else delay)
             candidates = targets if settings.mode == "first_curse" else ()
             self.cycles[key] = Cycle(start, start + interval, listen_at, target, candidates)
+            log.info(
+                "playback_cycle_started",
+                extra={
+                    "server": key,
+                    "mode": settings.mode,
+                    "interval_seconds": settings.interval_seconds,
+                    "delay_seconds": (listen_at - start).total_seconds(),
+                },
+            )
 
     def offer(self, policy: Server, chunk: SpeechChunk, words: Sequence[SpeechWord], matches: Sequence[Match]) -> None:
         from .lexicon import tokens
@@ -190,6 +215,15 @@ class PlaybackController:
             cycle.clip = chunk.pcm[start:end]
             cycle.target, cycle.candidates = target, ()
             cycle.captured = True
+            log.info(
+                "playback_clip_acquired",
+                extra={
+                    "server": key,
+                    "channel": target.channel,
+                    "identity": target.listener,
+                    "duration_seconds": len(cycle.clip) / PCM_BYTES_PER_SECOND,
+                },
+            )
             if policy.playback.cadence_timing:
                 cycle.play_at = cycle.end
             else:

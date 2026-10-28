@@ -10,6 +10,8 @@ Linux config requires 0600 permissions. Windows preflight rejects broad Everyone
 
 ## Policy defaults
 
+Top-level `logging.level` defaults to `"INFO"`; choose `"WARNING"` or `"ERROR"` for quieter diagnostics. INFO includes all three supported levels. See [native service logs and queries](logging.md).
+
 Head Hunt uses one primary_bot and an explicit voice_channels list by default. To roam all accessible ordinary voice channels, set head_hunt.all_channels=true and voice_channels=[]; newly created/removed channels take effect at the next evaluation without editing IDs. Optional head_hunt.excluded_channel_ids subtracts channels from either scope. One bot listens in one selected channel at a time. Evaluation interval defaults to600seconds. Ordered priority_member_ids interpolate maximum_weight=10 to minimum_weight=1; unlisted humans use default_weight=1. One priority member gets maximum; zero total affinity idles. Bots, excluded/unavailable members and forbidden/full/empty channels contribute no score.
 
 Fixed Channels uses mode=fixed_channels and assignments with bot/channel_id. Each bot and channel appears once per server; the primary bot is assigned too. Separately create and authorize secondary applications and declare distinct enabled credentials before referencing them. The coordinator reconciles one or several listeners in the same process.
@@ -24,7 +26,7 @@ Monitoring requires privacy.notice_acknowledged. monitoring_enabled=false disabl
 
 `servers[].playback` defaults to disabled, `interval_seconds: 900`, `mode: "random"`, `max_clip_seconds: 8`, `context_seconds: 1.5`. See [replay lifecycle](playback.md) before enabling. No additional token or bot identity is required.
 
-Mode `random` selects one weighted speaker and randomizes listening/replay timing; `cadence` selects one weighted speaker and replays at the cycle boundary. Set `mode: "first_curse"` to use random timing while accepting the first qualifying detection processed from any currently monitored eligible speaker. It preserves one clip per server and the winning listener/channel. For intervals below 60 seconds, first-curse mode uses cadence timing while retaining all-speaker eligibility.
+Mode `random` selects one weighted speaker and randomizes listening/replay timing; `cadence` selects one weighted speaker and replays at the cycle boundary. Set `mode: "first_curse"` to use random timing while accepting the first qualifying detection processed from any currently monitored eligible speaker. It preserves one clip per server and the winning listener/channel. Both randomized modes require `interval_seconds >= 120`; shorter values fail validation without changing modes. Explicit cadence supports intervals from five seconds. Existing shorter randomized configurations must be updated before upgrading.
 
 `servers[].leaderboards.report_channel_id` is an optional destination for scheduled end-of-period leaderboards; null uses `servers[].report_channel_id`. This does not reroute detection reports or private commands. `detection_reporting.channel_id` remains its independent optional override. All destinations need View Channel and Send Messages. Quote lookup additionally needs Read Message History for bot and requester.
 

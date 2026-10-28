@@ -18,15 +18,19 @@ Playback SHALL be disabled by default and use a 900-second default interval. Ran
 - **THEN** the cycle ends silently without retaining audio for the next cycle
 
 ### Requirement: Cadence mode and safe timing fallback
-Cadence mode SHALL listen for the selected member from the cycle start and play an acquired clip at its end. Random mode intervals below 60 seconds SHALL fall back to cadence with a warning. First-curse intervals below 60 seconds SHALL use cadence timing with a warning while retaining all-speaker eligibility. Configuration MUST bound intervals and clip duration; delayed recognition MUST NOT revive expired cycles.
+Cadence mode SHALL listen for the selected member from the cycle start and play an acquired clip at its end, with a minimum five-second interval. Random and first_curse modes SHALL require intervals of at least 120 seconds; shorter values MUST fail validation without silently changing timing or eligibility. Configuration MUST bound intervals and clip duration; delayed recognition MUST NOT revive expired cycles.
 
 #### Scenario: Short randomized interval
-- **WHEN** random mode is configured with a 30-second interval
-- **THEN** the runtime warns and uses 30-second cadence cycles
+- **WHEN** random mode is configured with an interval below 120 seconds
+- **THEN** configuration validation rejects it with an actionable minimum-interval error
 
 #### Scenario: Short first-curse interval
-- **WHEN** first_curse mode is configured with a 30-second interval
-- **THEN** the runtime warns, accepts any eligible speaker from cycle start and replays the acquired clip at the boundary
+- **WHEN** first_curse mode is configured with an interval below 120 seconds
+- **THEN** configuration validation rejects it without switching to cadence timing or selecting a speaker
+
+#### Scenario: Minimum randomized interval
+- **WHEN** random or first_curse is configured with a 120-second interval
+- **THEN** validation accepts the configuration and randomized listening/replay timing is retained
 
 ### Requirement: Ephemeral isolated audio playback
 At most one bounded clip per server SHALL be held in memory until playback/expiry. Audio MUST NOT enter files, SQLite, logs or backups. Playback MUST stay in the capture channel using in-process PCM encoding. The visible notice MUST disclose replay and the captured-clip lifecycle.

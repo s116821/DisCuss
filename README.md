@@ -1,5 +1,7 @@
 # DisCuss
 
+[Service logging](docs/logging.md) provides configurable INFO/WARNING/ERROR events through Linux journald or Windows Event Log, with a protected rotating file fallback.
+
 ![DisCuss pirate ship in Discord colors](docs/assets/discuss-banner.svg)
 
 Self-hosted Discord voice profanity competition, with one Python process coordinating one or multiple separately authorized bot identities.
