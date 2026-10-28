@@ -225,3 +225,28 @@ def test_assignment_events_distinguish_recovery_from_policy_move(tmp_path, caplo
 
     caplog.set_level(logging.INFO)
     asyncio.run(run())
+
+
+def test_module_entrypoint_retains_application_startup_and_error_events(tmp_path, monkeypatch):
+    import runpy
+    import warnings
+
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(config_data()))
+    monkeypatch.setattr("discuss.config.check_private_file", lambda p: None)
+    monkeypatch.setattr("discuss.service_logging.WindowsEventHandler", logging.NullHandler)
+
+    def crash(*args):
+        raise RuntimeError("private failure fixture")
+
+    monkeypatch.setattr("discuss.application.run_application", crash)
+    monkeypatch.setattr("sys.argv", ["discuss", "--config", str(path), "run"])
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="'discuss.cli' found in sys.modules", category=RuntimeWarning)
+        with pytest.raises(SystemExit) as stopped:
+            runpy.run_module("discuss.cli", run_name="__main__")
+    assert stopped.value.code == 1
+    events = rows(tmp_path / "state/runtime.log")
+    assert [e["event"] for e in events] == ["service_starting", "service_failed"]
+    assert all(e["logger"] == "discuss.cli" for e in events)
+    assert "private failure fixture" not in (tmp_path / "state/runtime.log").read_text()

@@ -15,6 +15,8 @@ from .service_logging import ServiceLogging
 from .storage import Store
 from .version import service_version
 
+log = logging.getLogger("discuss.cli")
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="discuss")
@@ -94,7 +96,7 @@ def _execute(args: argparse.Namespace, session: ServiceLogging | None = None) ->
         config = load_config(args.config)
     except ConfigError as error:
         if args.command == "run":
-            logging.getLogger(__name__).error("configuration_invalid", exc_info=True)
+            log.error("configuration_invalid", exc_info=True)
             print("Setup required: validate the protected configuration with discuss doctor.")
             return 0
         print(f"Setup required: {error}")
@@ -105,7 +107,7 @@ def _execute(args: argparse.Namespace, session: ServiceLogging | None = None) ->
 
             if session:
                 session.configure(config, state_path(config, args.config))
-            logging.getLogger(__name__).info(
+            log.info(
                 "service_starting",
                 extra={
                     "configured_level": config.logging.level,
@@ -114,14 +116,14 @@ def _execute(args: argparse.Namespace, session: ServiceLogging | None = None) ->
             )
             return run_application(config, args.config)
         except (ConfigError, ImportError):
-            logging.getLogger(__name__).error("runtime_setup_required", exc_info=True)
+            log.error("runtime_setup_required", exc_info=True)
             print("Setup required: verify protected config, runtime dependencies and the prepared speech model.")
             return 0
         except KeyboardInterrupt:
-            logging.getLogger(__name__).info("service_interrupted")
+            log.info("service_interrupted")
             return 0
         except Exception:
-            logging.getLogger(__name__).error("service_failed", exc_info=True)
+            log.error("service_failed", exc_info=True)
             return 1
     if args.command == "doctor":
         if args.runtime:
