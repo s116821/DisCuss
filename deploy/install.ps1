@@ -153,7 +153,7 @@ try {
     if ($LASTEXITCODE -eq 0) { Checked $candidate.python @('-m','discuss.cli','--config',$config,'doctor','--runtime') }
     elseif ($previousConfigReady) { throw 'Candidate rejects previously valid configuration; upgrade aborted' }
     if (-not $ProvisionOnly) {
-        Add-Type -AssemblyName System.Diagnostics.EventLog
+        if ($PSVersionTable.PSEdition -eq 'Core') { Add-Type -AssemblyName System.Diagnostics.EventLog }
         if (-not [System.Diagnostics.EventLog]::SourceExists('DisCuss')) {
             [System.Diagnostics.EventLog]::CreateEventSource('DisCuss','Application')
         } elseif ([System.Diagnostics.EventLog]::LogNameFromSourceName('DisCuss','.') -ne 'Application') {
