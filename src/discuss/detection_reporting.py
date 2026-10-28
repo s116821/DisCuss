@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import re
 import time
 import unicodedata
@@ -337,6 +338,9 @@ class DetectionFeed:
         except Exception:
             self.failures += 1
             self.due[server.server_id] = self.monotonic() + 10
+            logging.getLogger(__name__).warning(
+                "detection_flush_failed", extra={"server": server.server_id}, exc_info=True
+            )
 
     async def _flush(self, server: Server) -> None:
         key = server.server_id
@@ -393,6 +397,7 @@ class DetectionFeed:
         except Exception:
             self.failures += 1
             self.due[key] = self.monotonic() + 10
+            logging.getLogger(__name__).warning("detection_delivery_retry", extra={"server": key}, exc_info=True)
         else:
             if self.batches.get(key):
                 self.due[key] = self.monotonic()  # continue the same paginated digest on the next tick

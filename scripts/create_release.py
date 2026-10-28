@@ -75,6 +75,7 @@ def assemble(root: Path, output: Path, tag: str, platform: str | None = None) ->
                     "statistics.md",
                     "privacy.md",
                     "runtime.md",
+                    "logging.md",
                     "detection-reporting.md",
                     "playback.md",
                     "quote-history.md",

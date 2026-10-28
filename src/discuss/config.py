@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import subprocess
 from pathlib import Path
@@ -155,6 +154,16 @@ class DetectionReporting(Model):
 
 
 class Playback(Model):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "allOf": [
+                {
+                    "if": {"properties": {"mode": {"enum": ["random", "first_curse"]}}},
+                    "then": {"properties": {"interval_seconds": {"minimum": 120}}},
+                }
+            ],
+        }
+    )
     enabled: bool = False
     interval_seconds: float = Field(default=900, ge=5, le=86400)
     mode: Literal["random", "cadence", "first_curse"] = "random"
@@ -163,16 +172,13 @@ class Playback(Model):
 
     @property
     def cadence_timing(self) -> bool:
-        return self.mode == "cadence" or self.interval_seconds < 60
+        return self.mode == "cadence"
 
     @model_validator(mode="after")
     def safe_timing(self) -> Self:
-        if self.mode == "random" and self.interval_seconds < 60:
-            logging.getLogger(__name__).warning("Playback interval is too short for random timing; using cadence mode.")
-            self.mode = "cadence"
-        elif self.mode == "first_curse" and self.interval_seconds < 60:
-            logging.getLogger(__name__).warning(
-                "Playback interval is too short for random timing; using cadence timing with first-curse eligibility."
+        if self.mode != "cadence" and self.interval_seconds < 120:
+            raise ValueError(
+                "Randomized playback modes require interval_seconds >= 120; select cadence for shorter cycles"
             )
         return self
 
@@ -243,12 +249,17 @@ class Transcription(Model):
         return self
 
 
+class Logging(Model):
+    level: Literal["INFO", "WARNING", "ERROR"] = "INFO"
+
+
 class Config(Model):
     schema_version: Literal[1] = 1
     bots: list[Bot] = Field(min_length=1, max_length=128)
     servers: list[Server] = Field(min_length=1, max_length=1000)
     state_dir: str = Field(default="state", min_length=1)
     transcription: Transcription = Field(default_factory=Transcription)
+    logging: Logging = Field(default_factory=Logging)
 
     @model_validator(mode="after")
     def identities(self) -> Self:

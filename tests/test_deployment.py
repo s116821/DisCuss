@@ -40,6 +40,22 @@ def test_actual_installer_metadata_check_survives_windows_shell_quoting(tmp_path
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows Event Log type availability")
+@pytest.mark.parametrize("shell", ["powershell.exe", "pwsh"])
+def test_installer_event_log_type_loads_in_both_powershell_editions(shell):
+    installer = (Path(__file__).resolve().parents[1] / "deploy/install.ps1").read_text(encoding="utf-8")
+    setup = next(
+        line.strip() for line in installer.splitlines() if "Add-Type -AssemblyName System.Diagnostics.EventLog" in line
+    )
+    result = subprocess.run(
+        [shell, "-Command", setup + "; [System.Diagnostics.EventLog].FullName"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout.strip() == "System.Diagnostics.EventLog"
+
+
 def test_backup_includes_wal_without_migrating_and_restore_replaces_pages(tmp_path: Path) -> None:
     config = tmp_path / "config.json"
     config.write_text('{"sentinel":"protected-original"}')

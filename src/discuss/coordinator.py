@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
@@ -12,8 +13,11 @@ from .config import Config, Server
 from .playback import Target
 from .policy import ChannelPresence, choose_channel, fixed_assignments
 from .reporting import Scheduler
+from .service_logging import update_logging
 from .speech import PipelineSink, SpeechPipeline
 from .storage import Store
+
+log = logging.getLogger(__name__)
 
 
 class Listener(Protocol):
@@ -57,6 +61,7 @@ class Coordinator:
         self._retry: dict[tuple[str, str], float] = {}
         self._report_retry: dict[str, float] = {}
         self.errors: dict[str, str] = {}
+        self._loop_errors: dict[str, type[BaseException]] = {}
         self._lock = asyncio.Lock()
         self.pipeline.playback.start = lambda server, target, pcm, done: self.listeners[target.listener].play_clip(
             server, target, pcm, done
@@ -88,6 +93,7 @@ class Coordinator:
 
     async def reload(self, config: Config, now: datetime) -> None:
         async with self._lock:
+            log.info("configuration_reload_requested")
             expected = {b.name for b in config.bots if b.enabled}
             if expected != set(self.listeners):
                 raise ValueError("Restart is required when enabled bot identities change")
@@ -106,11 +112,13 @@ class Coordinator:
                 self.pipeline.discard(server.server_id)
                 self.pipeline.playback.discard(server.server_id, force=True)
             self.config = self.pipeline.config = config
+            update_logging(config)
             self.pipeline.detection_feed.reconfigure(config)
             await asyncio.gather(*(worker.reconfigure(config) for worker in self.listeners.values()))
             self._hunt_due.clear()
             self._selected.clear()
             self._notices.clear()
+            log.info("configuration_reloaded")
 
     async def tick(self, now: datetime, monotonic: float, *, include_reports: bool = True) -> None:
         async with self._lock:
@@ -121,9 +129,18 @@ class Coordinator:
             )
             for server, result in zip(self.config.servers, results, strict=True):
                 if isinstance(result, BaseException):
+                    if self._loop_errors.get(server.server_id) is not type(result):
+                        log.error(
+                            "reconciliation_failed",
+                            extra={"server": server.server_id},
+                            exc_info=(type(result), result, result.__traceback__),
+                        )
+                    self._loop_errors[server.server_id] = type(result)
                     self.errors[server.server_id] = (
                         "Listener reconciliation failed; inspect local setup and permissions"
                     )
+                elif self._loop_errors.pop(server.server_id, None) is not None:
+                    log.info("reconciliation_loop_recovered", extra={"server": server.server_id})
             if include_reports:
                 await self.report_tick(now, monotonic)
 
@@ -162,6 +179,14 @@ class Coordinator:
                 channels = self._channels(primary, server)
                 if monotonic >= self._hunt_due.get(server.server_id, 0):
                     self._selected[server.server_id] = choose_channel(server, channels, self.draw())
+                    log.info(
+                        "head_hunt_evaluated",
+                        extra={
+                            "server": server.server_id,
+                            "channel": self._selected[server.server_id] or "idle",
+                            "reason": "scheduled_evaluation",
+                        },
+                    )
                     self._hunt_due[server.server_id] = monotonic + server.head_hunt.interval_seconds
                 chosen = self._selected.get(server.server_id)
                 active = {
@@ -194,6 +219,7 @@ class Coordinator:
                 self._notices.add(notice)
             except Exception:
                 if targets:
+                    log.warning("notice_delivery_failed", extra={"server": server.server_id}, exc_info=True)
                     self._retry[("notice", server.server_id)] = monotonic + 10
                 targets.clear()
                 self.errors[server.server_id] = "Cannot publish the processing notice; check primary bot permissions"
@@ -214,6 +240,16 @@ class Coordinator:
         current = worker.current_channel(server.server_id)
         try:
             if current is not None and current != target:
+                log.info(
+                    "assignment_released",
+                    extra={
+                        "server": server.server_id,
+                        "identity": worker.name,
+                        "previous_channel": current,
+                        "channel": target or "idle",
+                        "reason": "policy_target_changed" if target else "no_eligible_target",
+                    },
+                )
                 if server.playback.mode == "first_curse":
                     self.pipeline.playback.unassign(server.server_id, worker.name)
                 else:
@@ -230,11 +266,24 @@ class Coordinator:
                 current = None
             if target is not None and (current != target or not worker.connected(server.server_id)):
                 if monotonic >= self._retry.get(key, 0):
+                    log.info(
+                        "assignment_requested",
+                        extra={
+                            "server": server.server_id,
+                            "identity": worker.name,
+                            "channel": target,
+                            "reason": "new_target" if current != target else "connection_recovery",
+                        },
+                    )
                     if current is not None:
                         await worker.release(server.server_id)
                     sink = self.pipeline.new_sink()
                     try:
                         await worker.assign(server.server_id, target, sink)
+                        log.info(
+                            "assignment_connected",
+                            extra={"server": server.server_id, "identity": worker.name, "channel": target},
+                        )
                     except Exception:
                         await sink.close("assignment failed")
                         raise
@@ -252,6 +301,16 @@ class Coordinator:
                 excluded=server.privacy.excluded_member_ids,
             )
         except Exception:
+            log.warning(
+                "assignment_retry_scheduled",
+                extra={
+                    "server": server.server_id,
+                    "identity": worker.name,
+                    "channel": target or current or "idle",
+                    "delay_seconds": 10,
+                },
+                exc_info=True,
+            )
             self._retry[key] = monotonic + 10
             self.errors[server.server_id] = "Listener unavailable; retrying this assignment"
             self.store.monitor(worker.name, server.server_id, current or target or "0", [], self.clock(), healthy=False)
@@ -270,6 +329,7 @@ class Coordinator:
                 30,
             )
         except Exception:
+            log.warning("report_delivery_retry", extra={"server": server.server_id, "delay_seconds": 30}, exc_info=True)
             self._report_retry[server.server_id] = monotonic + 30
             self.errors[server.server_id] = "Report delivery pending; primary identity will retry"
 

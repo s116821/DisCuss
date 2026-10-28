@@ -34,21 +34,21 @@ def capture(replay, server, *, at=NOW, member="100", channel="10"):
     replay.offer(server, chunk, words, Lexicon(False, ["violet"]).matches("violet"))
 
 
-def test_defaults_and_short_interval_fallback(caplog):
+def test_defaults_and_interval_validation():
     assert not Playback().enabled and Playback().interval_seconds == 900
     assert Playback().mode == "random"
-    short = Playback(enabled=True, interval_seconds=30)
-    assert short.mode == "cadence" and "using cadence" in caplog.text
+    assert Playback(mode="cadence", interval_seconds=5).cadence_timing
     with pytest.raises(ValueError):
         Playback(interval_seconds=0)
 
 
-def test_first_curse_config_retains_eligibility_with_short_cadence_timing(caplog):
-    normal = Playback(mode="first_curse", interval_seconds=600)
-    assert not normal.cadence_timing
-    short = Playback(mode="first_curse", interval_seconds=30)
-    assert short.mode == "first_curse" and short.cadence_timing
-    assert "cadence timing with first-curse eligibility" in caplog.text
+@pytest.mark.parametrize("mode", ["random", "first_curse"])
+@pytest.mark.parametrize("interval", [5, 30, 60, 119, 119.9])
+def test_randomized_modes_reject_intervals_below_two_minutes(mode, interval):
+    with pytest.raises(ValueError, match="interval_seconds >= 120"):
+        Playback(mode=mode, interval_seconds=interval)
+    normal = Playback(mode=mode, interval_seconds=120)
+    assert normal.mode == mode and not normal.cadence_timing
 
 
 @pytest.mark.parametrize("draw,member", [(0.0, "100"), (0.8, "200"), (0.99, "300")])
@@ -175,7 +175,11 @@ def test_pipeline_to_memory_playback_after_member_leaves_or_opts_out(tmp_path, m
 
     async def run():
         data = config_data()
-        data["servers"][0]["playback"] = {"enabled": True, "mode": mode, "interval_seconds": 5}
+        data["servers"][0]["playback"] = {
+            "enabled": True,
+            "mode": mode,
+            "interval_seconds": 5 if mode == "cadence" else 120,
+        }
         cfg = validate_config(json.dumps(data))
         server = cfg.servers[0]
         server.profanity.use_builtin_list = False
@@ -306,25 +310,26 @@ def test_first_curse_disabled_before_capture_rejects_offers(setting):
     assert not replay.cycles
 
 
-def test_first_curse_expiry_and_short_interval_boundary():
-    replay, server = controller(), policy(mode="first_curse", interval_seconds=30)
+def test_first_curse_expiry_at_minimum_randomized_interval():
+    replay, server = controller(), policy(mode="first_curse", interval_seconds=120)
     other = Target("primary", "10", "200")
     replay.tick(server, NOW, [TARGET, other])
     cycle = replay.cycles["1"]
     assert cycle.listen_at == NOW and cycle.target is None
     capture(replay, server, member="200")
-    assert cycle.play_at == NOW + timedelta(seconds=30)
+    assert cycle.play_at == NOW + timedelta(seconds=1)
     calls = []
     replay.start = lambda s, t, pcm, done: calls.append(t) or done() or True
-    replay.tick(server, NOW + timedelta(seconds=29), [TARGET, other])
+    replay.tick(server, NOW, [TARGET, other])
     assert not calls
-    replay.tick(server, NOW + timedelta(seconds=30), [TARGET, other])
+    replay.tick(server, NOW + timedelta(seconds=1), [TARGET, other])
     assert calls == [other]
-    replay.clock = lambda: NOW + timedelta(seconds=61)
-    capture(replay, server, at=NOW + timedelta(seconds=40))
+    replay.tick(server, NOW + timedelta(seconds=120), [TARGET, other])
+    replay.clock = lambda: NOW + timedelta(seconds=241)
+    capture(replay, server, at=NOW + timedelta(seconds=130))
     assert replay.cycles["1"].clip is None
     replay.tick(server, replay.clock(), [TARGET, other])
-    capture(replay, server, at=NOW + timedelta(seconds=40))  # Previous cycle speech cannot enter the next.
+    capture(replay, server, at=NOW + timedelta(seconds=130))  # Previous cycle speech cannot enter the next.
     assert replay.cycles["1"].clip is None and replay.skipped == 1 and calls == [other]
 
 

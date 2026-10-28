@@ -251,8 +251,46 @@
       "title": "Leaderboards",
       "type": "object"
     },
+    "Logging": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "default": "INFO",
+          "enum": [
+            "INFO",
+            "WARNING",
+            "ERROR"
+          ],
+          "title": "Level",
+          "type": "string"
+        }
+      },
+      "title": "Logging",
+      "type": "object"
+    },
     "Playback": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "enum": [
+                  "random",
+                  "first_curse"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "interval_seconds": {
+                "minimum": 120
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "enabled": {
           "default": false,
@@ -581,6 +619,9 @@
     },
     "transcription": {
       "$ref": "#/$defs/Transcription"
+    },
+    "logging": {
+      "$ref": "#/$defs/Logging"
     }
   },
   "required": [

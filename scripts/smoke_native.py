@@ -158,6 +158,55 @@ def smoke(
                     'p=json.load(open(r/"current.json",encoding="utf-8-sig"))["python"]; '
                     'assert subprocess.run([p,"-m","discuss.cli","--config",str(r/"config.json"),"run"]).returncode==0'
                 )
+                admin_python(
+                    "import logging,pathlib,sys; from discuss.service_logging import ServiceLogging; "
+                    "r=pathlib.Path(sys.argv[1]);\n"
+                    "with ServiceLogging(r/'state/native-logging-smoke.log'):\n"
+                    " for level in ('info','warning','error'):\n"
+                    "  getattr(logging.getLogger('discuss.smoke'),level)('native_logging_smoke_'+level)\n"
+                    "assert 'native_logging_smoke_info' in (r/'state/native-logging-smoke.log').read_text()\n"
+                )
+                if windows:
+                    run(
+                        "pwsh",
+                        "-Command",
+                        "$e=Get-WinEvent -FilterHashtable @{LogName='Application';ProviderName='DisCuss';"
+                        "StartTime=(Get-Date).AddMinutes(-10)}; "
+                        "foreach($pair in @(@('info',4),@('warning',3),@('error',2))){"
+                        "$found=@($e|Where-Object {$_.Message -match ('native_logging_smoke_'+$pair[0]) "
+                        "-and $_.Level -eq $pair[1]});if(-not $found.Count){throw 'Native severity event missing'}}",
+                    )
+                else:
+                    probe = (
+                        "import logging; from discuss.service_logging import ServiceLogging\n"
+                        "with ServiceLogging():\n"
+                        " for level in ('info','warning','error'):\n"
+                        "  getattr(logging.getLogger('discuss.smoke'),level)('native_logging_smoke_'+level)\n"
+                    )
+                    admin_python(
+                        "import subprocess,sys; subprocess.run(['systemd-run','--uid=discuss',"
+                        "'--unit=discuss-logging-smoke','--wait','--collect',sys.executable,'-c',"
+                        + repr(probe)
+                        + "],check=True)"
+                    )
+                    journal = subprocess.run(
+                        ["sudo", "journalctl", "-u", "discuss-logging-smoke.service", "-o", "json", "--no-pager"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    levels = {}
+                    for line in journal.stdout.splitlines():
+                        record = json.loads(line)
+                        try:
+                            event = json.loads(record.get("MESSAGE", ""))["event"]
+                        except (ValueError, KeyError, TypeError):
+                            continue
+                        levels[event] = record["PRIORITY"]
+                    assert all(
+                        levels[f"native_logging_smoke_{name}"] == priority
+                        for name, priority in (("info", "6"), ("warning", "4"), ("error", "3"))
+                    )
             install(second, "rollback")
         admin_python(
             'import pathlib,sqlite3,sys; r=pathlib.Path(sys.argv[1]); d=sqlite3.connect(r/"state/statistics.sqlite3"); '

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import time
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
@@ -23,6 +24,8 @@ from .quote_history import RESULT_LIMIT, SCAN_LIMIT, belongs, bounds, parse_line
 from .reporting import render, render_word_counts, report_members, resolve_page_names, standings
 from .speech import PipelineSink, SpeechPipeline
 from .storage import Store
+
+log = logging.getLogger(__name__)
 
 
 def permitted_admin(interaction: discord.Interaction) -> bool:
@@ -89,12 +92,25 @@ class DiscordListener:
 
         @self.client.event
         async def on_ready() -> None:
+            log.info("gateway_ready", extra={"identity": self.name})
             for server in self.config.servers:
                 if server.primary_bot == self.name:
                     target = discord.Object(id=int(server.server_id))
                     self.tree.copy_global_to(guild=target)
                     with contextlib.suppress(discord.HTTPException):
                         await self.tree.sync(guild=target)
+
+        @self.client.event
+        async def on_disconnect() -> None:
+            log.warning("gateway_disconnected", extra={"identity": self.name})
+
+        @self.client.event
+        async def on_resumed() -> None:
+            log.info("gateway_resumed", extra={"identity": self.name})
+
+        @self.client.event
+        async def on_error(event_method: str, *args, **kwargs) -> None:
+            log.error("gateway_callback_failed", extra={"identity": self.name, "reason": event_method}, exc_info=True)
 
         @self.client.event
         async def on_voice_state_update(
@@ -106,6 +122,15 @@ class DiscordListener:
                 return
             if before.channel != after.channel:
                 if self.client.user is not None and member.id == self.client.user.id:
+                    log.info(
+                        "bot_voice_state_changed",
+                        extra={
+                            "identity": self.name,
+                            "server": member.guild.name,
+                            "previous_channel": before.channel.name if before.channel else "disconnected",
+                            "channel": after.channel.name if after.channel else "disconnected",
+                        },
+                    )
                     self.pipeline.playback.discard(server_id)
                 else:
                     self.pipeline.playback.discard(server_id, str(member.id))
@@ -155,12 +180,19 @@ class DiscordListener:
             if self._closing:
                 return
             try:
+                log.info("gateway_connecting", extra={"identity": self.name, "attempt": attempt + 1})
                 await self.client.start(self.bot.token.get_secret_value(), reconnect=True)
                 return
             except discord.LoginFailure:
+                log.error("gateway_authorization_failed", extra={"identity": self.name}, exc_info=True)
                 self.setup_failed = True
                 return
             except (OSError, discord.HTTPException):
+                log.warning(
+                    "gateway_connection_failed",
+                    extra={"identity": self.name, "attempt": attempt + 1, "delay_seconds": min(30, 2**attempt)},
+                    exc_info=True,
+                )
                 if attempt == 4:
                     return
                 await asyncio.sleep(min(30, 2**attempt))
@@ -218,15 +250,20 @@ class DiscordListener:
     async def assign(self, server: str, channel: str, sink: PipelineSink) -> None:
         instance = self.client.get_guild(int(server))
         target = instance.get_channel(int(channel)) if instance else None
-        if not isinstance(target, discord.VoiceChannel):
+        if instance is None or not isinstance(target, discord.VoiceChannel):
             raise ValueError("Configured voice channel is unavailable")
         if self._voice(server) is not None:
             await self.release(server)
+        log.info("voice_join_requested", extra={"identity": self.name, "server": instance.name, "channel": target.name})
         voice = await target.connect(cls=VoiceRecvClient, self_deaf=False, timeout=20)
         self._expected_channels[server] = channel
         try:
             voice.listen(MemberSink(self.client, sink, server, channel), decode_pcm=True)
+            log.info(
+                "voice_capture_ready", extra={"identity": self.name, "server": instance.name, "channel": target.name}
+            )
         except Exception:
+            log.error("voice_capture_failed", extra={"identity": self.name, "server": server}, exc_info=True)
             await voice.disconnect(force=True)
             raise
 
@@ -235,6 +272,9 @@ class DiscordListener:
         self._expected_channels.pop(server, None)
         voice = self._voice(server)
         if voice is not None:
+            log.info(
+                "voice_leave_requested", extra={"identity": self.name, "server": server, "channel": voice.channel.name}
+            )
             await voice.disconnect(force=True)
 
     def play_clip(self, server: str, target: Target, pcm: bytes, done: Callable[[], None]) -> bool:
@@ -253,7 +293,16 @@ class DiscordListener:
         loop = asyncio.get_running_loop()
         source = MemoryAudio(pcm)
         try:
-            voice.play(source, after=lambda error: loop.call_soon_threadsafe(done))
+
+            def finished(error: Exception | None) -> None:
+                if error:
+                    log.warning(
+                        "playback_transport_failed",
+                        extra={"identity": self.name, "server": server, "error_type": type(error).__name__},
+                    )
+                loop.call_soon_threadsafe(done)
+
+            voice.play(source, after=finished)
         except Exception:
             source.cleanup()
             raise
