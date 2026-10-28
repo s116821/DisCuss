@@ -117,7 +117,7 @@ jobs:
           uv sync --locked --no-dev --extra runtime
           if ($env:CANDIDATE_TAG) { git tag $env:CANDIDATE_TAG $env:GITHUB_SHA }
           $env:SOURCE_DATE_EPOCH = git show -s --format=%ct HEAD
-          uv build
+          uv build --wheel
           uv export --quiet --locked --extra runtime --no-dev --no-emit-project --format requirements-txt --output-file runtime-requirements.txt
           uv run --no-dev --extra runtime python -m scripts.package_release assemble --platform $env:PLATFORM --tag "$env:CANDIDATE_TAG" --commit $env:GITHUB_SHA
       - name: Download previous published upgrade inputs

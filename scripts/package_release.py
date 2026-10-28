@@ -8,7 +8,6 @@ import json
 import os
 import re
 import shutil
-import tarfile
 import tempfile
 import tomllib
 import zipfile
@@ -53,21 +52,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def artifact_version(path: Path) -> str:
-    if path.suffix == ".whl":
-        with zipfile.ZipFile(path) as archive:
-            names = [n for n in archive.namelist() if n.endswith(".dist-info/METADATA")]
-            if len(names) != 1:
-                raise ValueError("Wheel must contain exactly one metadata record")
-            text = archive.read(names[0]).decode("utf-8")
-    else:
-        with tarfile.open(path) as archive:
-            members = [m for m in archive.getmembers() if m.name.count("/") == 1 and m.name.endswith("/PKG-INFO")]
-            if len(members) != 1:
-                raise ValueError("Source archive must contain exactly one root metadata record")
-            stream = archive.extractfile(members[0])
-            if stream is None:
-                raise ValueError("Missing source metadata")
-            text = stream.read().decode("utf-8")
+    with zipfile.ZipFile(path) as archive:
+        names = [n for n in archive.namelist() if n.endswith(".dist-info/METADATA")]
+        if len(names) != 1:
+            raise ValueError("Wheel must contain exactly one metadata record")
+        text = archive.read(names[0]).decode("utf-8")
     value = Parser().parsestr(text).get("Version")
     if value is None:
         raise ValueError("Missing package version")
@@ -78,13 +67,12 @@ def assemble(root: Path, output: Path, tag: str, platform: str | None = None) ->
     if not tag.startswith("v") or str(Version(tag[1:])) != tag[1:]:
         raise ValueError("Release tag must be v followed by the canonical package version")
     wheels = list(output.glob("*.whl"))
-    sources = list(output.glob("*.tar.gz"))
-    if len(wheels) != 1 or len(sources) != 1:
-        raise ValueError("Expected one wheel and one sdist in a clean output directory")
-    for path in wheels + sources:
+    if len(wheels) != 1:
+        raise ValueError("Expected one internal application wheel")
+    for path in wheels:
         if artifact_version(path) != tag[1:]:
             raise ValueError(f"Artifact metadata does not match tag: {path.name}")
-    assets = wheels + sources
+    assets = wheels
     receiver, requires_build = receiver_dependency(root)
     for target, suffix in (("windows-x64", "zip"), ("linux-x64", "gztar")):
         if platform is not None and platform != target:
@@ -94,7 +82,8 @@ def assemble(root: Path, output: Path, tag: str, platform: str | None = None) ->
             shutil.copy2(wheels[0], staging / wheels[0].name)
             for name in ("LICENSE", "config.example.json", "runtime-requirements.txt"):
                 shutil.copy2(root / name, staging / name)
-            for name in ("INSTALL.md", "install.sh", "install.ps1", "manage_state.py"):
+            installer = "install.ps1" if target == "windows-x64" else "install.sh"
+            for name in ("INSTALL.md", installer, "manage_state.py"):
                 shutil.copy2(root / "scripts/deploy" / name, staging / name)
             for name in (
                 "discord-setup.md",
@@ -149,16 +138,13 @@ def collect(source: Path, output: Path, tag: str, commit: str) -> None:
             if Path(name).name != name or hashlib.sha256((directory / name).read_bytes()).hexdigest() != digest:
                 raise ValueError("Build artifact checksum mismatch")
         wheels = list(directory.glob("*.whl"))
-        sources = [p for p in directory.glob("*.tar.gz") if p.name.startswith("discuss-")]
         archive = directory / f"DisCuss-{tag}-{platform}.{suffix}"
-        if len(wheels) != 1 or len(sources) != 1 or not archive.is_file():
-            raise ValueError("Expected package distributions and platform archive")
-        for path in wheels + sources:
+        if len(wheels) != 1 or not archive.is_file():
+            raise ValueError("Expected internal wheel and native platform archive")
+        for path in wheels:
             if artifact_version(path) != tag.removeprefix("v"):
                 raise ValueError("Package metadata differs from final release version")
         selected.append(archive)
-        if platform == "linux-x64":
-            selected.extend(wheels + sources)
     output.mkdir(parents=True, exist_ok=True)
     for path in selected:
         shutil.copyfile(path, output / path.name)

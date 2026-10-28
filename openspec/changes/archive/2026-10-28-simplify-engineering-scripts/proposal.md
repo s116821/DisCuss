@@ -10,6 +10,7 @@ The previous CI cleanup reduced jobs but retained a chain of active custom orche
 - Keep version planning out of quality; main platform builds use the actual analyzer to determine their local build tag.
 - Consolidate native archive assembly and saved-artifact verification in one packaging helper; remove the unused fixture builder.
 - Move deployment tooling and its guide to scripts/deploy; group standalone acceptance helpers under tests/tools.
+- Publish only the two native installer bundles and checksums; keep the application wheel internal and stop building an unused source distribution. Include only the matching OS installer in each native bundle.
 - Update active references and document why each remaining custom tool exists.
 
 ## Capabilities
@@ -20,6 +21,7 @@ None.
 
 ### Modified Capabilities
 
+- `application-distribution`: distinguish application download assets from internal Python packaging and GitHub-generated source links.
 - `release-provenance`: quality performs no release planning; standard publication integration preserves the tested artifact identity and three gates.
 
 ## Impact

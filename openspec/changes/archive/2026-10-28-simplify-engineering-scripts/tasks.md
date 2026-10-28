@@ -10,6 +10,8 @@
 - [x] 2.1 Inline build/export/download commands and analyzer preview in builds; replace publication/guard wrappers with standard action/plugin; verify actual-engine docs/fix/feat/breaking and pre-tag guard fixtures.
 - [x] 2.2 Update workflow contract tests and contributor guidance; verify quality has no release planning and publication reuses saved artifacts without code-check duplication.
 
+- [x] 2.3 Audit existing published archives and consumers; build only the internal wheel, publish native bundles/checksums only, include the matching installer, and verify artifact contents, corruption rejection and operator guidance.
+
 ## 3. Integration
 
 - [x] 3.1 Run required lint, format, types, complete offline tests, release fixtures and strict specification validation; record results and check active references.

@@ -16,4 +16,6 @@ Privileged native installation acceptance and optional release fixtures live in 
 
 CI runs one quality job, parallel native builds and a final main-only release. Quality does no version planning. Main builds need a candidate tag because the wheel embeds its version; they call the actual configured semantic-release analyzer against their disposable local checkout, without publishing. PRs build the ordinary Git-derived development version. Final publication uses the maintained [semantic-release action](https://github.com/cycjimmy/semantic-release-action) and [exec plugin](https://github.com/semantic-release/exec) to reject a source/tag mismatch before tagging. Artifact transfer and provenance use standard GitHub actions. Publication reuses the exact tested files.
 
+Application downloads are only the Windows ZIP, Linux tarball and SHA256SUMS, with provenance. The wheel is an internal installer payload; no separate application wheel/source tarball is published.
+
 Deployment sources moved under `scripts/deploy`; downloadable archives retain their flat layout, so installation commands are unchanged. No compatibility shims or duplicate deployment directory are needed.

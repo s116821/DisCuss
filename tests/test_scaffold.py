@@ -77,7 +77,9 @@ def test_actual_tag_build_and_release_assets(tmp_path: Path) -> None:
     )
     run_git(repo, "tag", "v1.2.3")
     assert run_git(repo, "describe", "--tags", "--abbrev=0") == "v1.2.3"
-    subprocess.run(["uv", "build", "--out-dir", str(repo / "dist")], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["uv", "build", "--wheel", "--out-dir", str(repo / "dist")], cwd=repo, check=True, capture_output=True
+    )
     wheel = next((repo / "dist").glob("*.whl"))
     assert artifact_version(wheel) == "1.2.3"
     assets = assemble(repo, repo / "dist", "v1.2.3")
@@ -91,6 +93,13 @@ def test_actual_tag_build_and_release_assets(tmp_path: Path) -> None:
             assert manifest["receiver_requires_build"] is False
             assert manifest["receiver"] == "1.0.0"
             assert "qualification-status.md" in bundle.namelist()
+            assert "install.ps1" in bundle.namelist() and "install.sh" not in bundle.namelist()
+            assert bundle.read(wheel.name) == wheel.read_bytes()
+        import tarfile
+
+        with tarfile.open(repo / "dist/DisCuss-v1.2.3-linux-x64.tar.gz") as bundle:
+            assert "./install.sh" in bundle.getnames() and "./install.ps1" not in bundle.getnames()
+            assert bundle.extractfile("./" + wheel.name).read() == wheel.read_bytes()
     with pytest.raises(ValueError, match="metadata does not match"):
         # Fresh build output: exclude the already created deployment tarball.
         clean = tmp_path / "mismatch"

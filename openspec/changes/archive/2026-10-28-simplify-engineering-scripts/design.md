@@ -12,6 +12,8 @@ See proposal.md. The wheel embeds its version, so a candidate is needed before t
 - Keep deployment in scripts/deploy; preserve the flat archive contract so operators still run install.ps1/install.sh from the extracted archive. Keep native acceptance under tests/tools, since it exercises real OS installers and cannot be replaced by generic artifact actions.
 - Remove the obsolete standalone smoke fixture builder and its separate temporary-repository machinery. Keep speech benchmarks, dictionary encoding and OpenSpec validation because they are maintenance/acceptance tools, not publication wrappers.
 
+- Native builds produce a wheel only, embedded in their archive; internal CI receipts still validate that wheel. Final collection publishes only Linux/Windows bundles and SHA256SUMS. DisCuss is a self-hosted application, not a separately published PyPI library. GitHub already provides source links for every release tag. Only the installer for the target OS goes in each bundle. Existing published releases remain intact for upgrade inputs.
+
 ## Risks / Trade-offs
 
 - Two platform candidates could disagree: receipt validation rejects mismatched source/tag/platform before publication; the official exec plugin checks final analyzer identity before tagging.
