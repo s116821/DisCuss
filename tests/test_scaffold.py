@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 from packaging.version import Version
-from scripts.create_release import artifact_version, assemble
+from scripts.package_release import artifact_version, assemble
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
@@ -58,8 +58,8 @@ def test_actual_tag_build_and_release_assets(tmp_path: Path) -> None:
     for name in ("pyproject.toml", "README.md", "LICENSE", ".gitignore"):
         shutil.copy2(ROOT / name, repo / name)
     shutil.copytree(ROOT / "src", repo / "src", ignore=shutil.ignore_patterns("__pycache__"))
-    if (ROOT / "deploy").exists():
-        shutil.copytree(ROOT / "deploy", repo / "deploy")
+    if (ROOT / "scripts/deploy").exists():
+        shutil.copytree(ROOT / "scripts/deploy", repo / "scripts/deploy")
         shutil.copytree(ROOT / "docs", repo / "docs")
         shutil.copy2(ROOT / "config.example.json", repo / "config.example.json")
         (repo / "runtime-requirements.txt").write_text("# Synthetic assembly fixture only\n")
@@ -131,7 +131,12 @@ def test_reference_analyzer_config_and_release_gate() -> None:
     for job in (jobs["build"], jobs["release"]):
         commands = "\n".join(step.get("run", "") for step in job["steps"])
         assert all(check not in commands for check in ("ruff", "pytest", "ty check", "test:release", "spec:validate"))
-    assert "collect_release" in jobs["release"]["steps"][-3]["run"]
+    assert any("package_release collect" in step.get("run", "") for step in jobs["release"]["steps"])
+    quality = "\n".join(step.get("run", "") for step in jobs["quality"]["steps"])
+    assert "semantic" not in quality and "outputs" not in jobs["quality"]
+    assert any(
+        step.get("uses", "").startswith("cycjimmy/semantic-release-action@") for step in jobs["release"]["steps"]
+    )
     assert "RELEASE_READY" not in ci
     assert "check_release_ready" not in ci
     pr = (ROOT / ".github/workflows/pr-title.yml").read_text(encoding="utf-8")

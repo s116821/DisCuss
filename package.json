@@ -3,13 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:release": "node scripts/test-release-analyzer.mjs && node scripts/test-release-pipeline.mjs",
+    "test:release": "node tests/tools/test-release-analyzer.mjs && node tests/tools/test-release-pipeline.mjs",
     "spec:validate": "openspec validate --specs --strict",
     "spec:check": "uv run python scripts/check_openspec.py"
   },
   "devDependencies": {
     "@fission-ai/openspec": "1.14.1",
     "semantic-release": "25.0.2",
-    "conventional-changelog-conventionalcommits": "9.1.0"
+    "conventional-changelog-conventionalcommits": "9.1.0",
+    "@semantic-release/exec": "7.1.0"
   }
 }

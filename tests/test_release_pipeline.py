@@ -10,7 +10,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
-from scripts.collect_release import collect
+from scripts.package_release import collect
 
 
 def fixture(root: Path) -> None:

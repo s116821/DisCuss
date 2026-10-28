@@ -26,7 +26,7 @@
         "preset": "conventionalcommits"
       }
     ],
-    "./scripts/release_guard.mjs",
+    ["@semantic-release/exec", {"verifyReleaseCmd": "node -e \"if (process.env.EXPECTED_TAG !== '${nextRelease.gitTag}' || process.env.EXPECTED_COMMIT !== '${nextRelease.gitHead}') throw Error('Final release differs from validated build identity')\""}],
     ["@semantic-release/github", {"assets": [{"path": "dist/*"}]}]
   ]
 }

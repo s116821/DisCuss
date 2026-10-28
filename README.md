@@ -6,7 +6,9 @@
 
 Self-hosted Discord voice profanity competition, with one Python process coordinating one or multiple separately authorized bot identities.
 
-**Current status: working Windows deployment; broader qualification continues.** Protected policy/statistics, one-process coordination, Discord adapters, local speech, privacy controls, reports, diagnostics and native boot installers are implemented. See [runtime setup and limits](docs/runtime.md) and [native install/upgrade guide](deploy/INSTALL.md). Development releases publish automatically; broader live Discord and actual VM reboot qualification remain documented separately.
+**Current status: working Windows deployment; broader qualification continues.** Protected policy/statistics, one-process coordination, Discord adapters, local speech, privacy controls, reports, diagnostics and native boot installers are implemented. See [runtime setup and limits](docs/runtime.md) and [native install/upgrade guide](scripts/deploy/INSTALL.md). Development releases publish automatically; broader live Discord and actual VM reboot qualification remain documented separately.
+
+Contributor tooling and the purpose of each retained custom script are documented in [scripts/README.md](scripts/README.md).
 
 Start with [Discord application setup and permissions](docs/discord-setup.md), then [configuration](docs/configuration.md), [statistics/operations](docs/statistics.md) and [privacy](docs/privacy.md). Run `discuss --config PATH doctor` for offline setup preflight. The example JSON intentionally contains placeholder setup; never put real credentials in the repository. Canonical tracking is the DisCuss Linear roadmap.
 

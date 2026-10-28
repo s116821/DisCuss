@@ -33,6 +33,6 @@ An enabled playback cycle is not a continuous recording or an immediate sound te
 
 ## Applying settings on an installed host
 
-Follow the [native installation guide](https://github.com/s116821/DisCuss/blob/main/deploy/INSTALL.md) for boot startup and private storage. Windows installation and edits under protected `ProgramData` require an elevated PowerShell/UAC approval; an ordinary-user test config in a private folder does not inherently require administrator rights.
+Follow the [native installation guide](https://github.com/s116821/DisCuss/blob/main/scripts/deploy/INSTALL.md) for boot startup and private storage. Windows installation and edits under protected `ProgramData` require an elevated PowerShell/UAC approval; an ordinary-user test config in a private folder does not inherently require administrator rights.
 
 For policy changes, validate a protected candidate with `discuss --config PATH doctor` before replacing the active config. Preserve its private ACLs and every unrelated setting, including credentials. Destination and playback-interval changes reload in the same application process, briefly release/reconnect voice and clear pending excerpts and captured replay clips. Identity, token, model or state-directory changes require a restart. See [policy edits](configuration.md#editing-a-running-installation). Publishing a new release does not upgrade the installed runtime; a code update uses the verified native installer.

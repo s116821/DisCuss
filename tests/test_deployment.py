@@ -11,8 +11,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from deploy.manage_state import backup, copy_database, restore, verify_bundle
-from scripts.receiver_dependency import receiver_dependency
+from scripts.deploy.manage_state import backup, copy_database, restore, verify_bundle
+from scripts.package_release import receiver_dependency
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows native argument passing")
@@ -20,7 +20,7 @@ from scripts.receiver_dependency import receiver_dependency
 def test_actual_installer_metadata_check_survives_windows_shell_quoting(tmp_path, shell):
     program = shutil.which(shell)
     assert program is not None
-    installer = (Path(__file__).resolve().parents[1] / "deploy/install.ps1").read_text(encoding="utf-8")
+    installer = (Path(__file__).resolve().parents[1] / "scripts/deploy/install.ps1").read_text(encoding="utf-8")
     check = next(line.strip() for line in installer.splitlines() if "importlib.metadata.version" in line)
     checked = re.search(r"(?ms)^function Checked\(.*?^}", installer).group()
     script = tmp_path / "installer quoted metadata.ps1"
@@ -43,7 +43,7 @@ def test_actual_installer_metadata_check_survives_windows_shell_quoting(tmp_path
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows Event Log type availability")
 @pytest.mark.parametrize("shell", ["powershell.exe", "pwsh"])
 def test_installer_event_log_type_loads_in_both_powershell_editions(shell):
-    installer = (Path(__file__).resolve().parents[1] / "deploy/install.ps1").read_text(encoding="utf-8")
+    installer = (Path(__file__).resolve().parents[1] / "scripts/deploy/install.ps1").read_text(encoding="utf-8")
     setup = next(
         line.strip() for line in installer.splitlines() if "Add-Type -AssemblyName System.Diagnostics.EventLog" in line
     )
