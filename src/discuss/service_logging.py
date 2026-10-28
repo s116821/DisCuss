@@ -11,6 +11,7 @@ import re
 import sys
 import threading
 import traceback
+from collections.abc import Callable
 from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -79,19 +80,31 @@ class SafeFormatter(logging.Formatter):
         return text
 
 
+def windows_error() -> OSError:
+    if sys.platform == "win32":
+        return ctypes.WinError(ctypes.get_last_error())
+    return OSError("Windows event API unavailable on this platform")
+
+
 class WindowsEventHandler(logging.Handler):
     """Write a registered Application source through the OS API, without pywin32."""
 
+    report: Callable[..., int]
+    deregister: Callable[..., int]
+    event_handle: int | None
+
     def __init__(self, source: str = "DisCuss") -> None:
         super().__init__()
+        if sys.platform != "win32":
+            raise windows_error()
         from ctypes import wintypes
 
         api = ctypes.WinDLL("advapi32", use_last_error=True)
         self.register = api.RegisterEventSourceW
         self.register.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
         self.register.restype = wintypes.HANDLE
-        self.report = api.ReportEventW
-        self.report.argtypes = [
+        report = api.ReportEventW
+        report.argtypes = [
             wintypes.HANDLE,
             wintypes.WORD,
             wintypes.WORD,
@@ -102,13 +115,15 @@ class WindowsEventHandler(logging.Handler):
             ctypes.POINTER(wintypes.LPCWSTR),
             ctypes.c_void_p,
         ]
-        self.report.restype = wintypes.BOOL
-        self.deregister = api.DeregisterEventSource
-        self.deregister.argtypes = [wintypes.HANDLE]
-        self.deregister.restype = wintypes.BOOL
+        report.restype = wintypes.BOOL
+        self.report = report
+        deregister = api.DeregisterEventSource
+        deregister.argtypes = [wintypes.HANDLE]
+        deregister.restype = wintypes.BOOL
+        self.deregister = deregister
         self.event_handle = self.register(None, source)
         if not self.event_handle:
-            raise ctypes.WinError(ctypes.get_last_error())
+            raise windows_error()
         self.failed = False
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -118,7 +133,7 @@ class WindowsEventHandler(logging.Handler):
             kind = 1 if record.levelno >= logging.ERROR else 2 if record.levelno >= logging.WARNING else 4
             strings = (ctypes.c_wchar_p * 1)(self.format(record))
             if not self.report(self.event_handle, kind, 0, 0, None, 1, 0, strings, None):
-                raise ctypes.WinError(ctypes.get_last_error())
+                raise windows_error()
         except OSError:
             self.failed = True
             logging.getLogger(__name__).warning("native_logging_unavailable", exc_info=True)
