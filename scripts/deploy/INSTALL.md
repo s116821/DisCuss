@@ -46,7 +46,7 @@ Stop-ScheduledTask -TaskName DisCuss
 Disable-ScheduledTask -TaskName DisCuss
 ```
 
-Model setup is explicit and can run before tokens using `model-setup --state-dir "$root\state"`. Running it elevated gives files the state's inherited private runtime permissions. Task Scheduler stop can terminate the Python process; crash recovery uses durable exposure checkpoints and never counts downtime. Linux SIGTERM allows graceful cleanup. Configure host log rotation; the Windows diagnostic file is append-only.
+Model setup is explicit and can run before tokens using `model-setup --state-dir "$root\state"`. Running it elevated gives files the state's inherited private runtime permissions. Task Scheduler stop can terminate the Python process; crash recovery uses durable exposure checkpoints and never counts downtime. Linux SIGTERM allows graceful cleanup. The diagnostic file rotates automatically at 5 MiB with three backups; native log retention follows host policy.
 
 ## Backups, updates and rollback
 
@@ -60,7 +60,7 @@ Rerunning the same verified archive preserves config/state and does not replace 
 
 ## Troubleshooting and qualification
 
-Configure each bot application's **Installation → Default Install Settings → Guild Install** scopes and requested permissions in the Developer Portal, including **Speak** for replay. Then verify the actual server-role and channel overrides, including private categories. See [Discord setup and mute/suppression troubleshooting](https://github.com/s116821/DisCuss/blob/main/docs/discord-setup.md). Native archives built from this revision include `discord-setup.md` beside this guide; for older bundles, use the online guide. Documentation-only merges do not publish replacement archives, so bundled updates ship with the next package release.
+Configure each bot application's **Installation â†’ Default Install Settings â†’ Guild Install** scopes and requested permissions in the Developer Portal, including **Speak** for replay. Then verify the actual server-role and channel overrides, including private categories. See [Discord setup and mute/suppression troubleshooting](https://github.com/s116821/DisCuss/blob/main/docs/discord-setup.md). Native archives built from this revision include `discord-setup.md` beside this guide; for older bundles, use the online guide. Documentation-only merges do not publish replacement archives, so bundled updates ship with the next package release.
 
 Report destinations and playback intervals can be changed through a validated, private config replacement without restarting the process. The watcher releases/reconciles voice assignments, republishes the notice and discards pending excerpts and captured clips. Preserve the existing ACLs, validate a protected candidate with the installed interpreter's `-m discuss.cli --config CANDIDATE_PATH doctor`, and replace the config atomically. Protected Windows edits require an accepted UAC/elevated session; do not relax ACLs. Verify fresh health and actual channel access after reconnection. See [policy edits and separate report channels](https://github.com/s116821/DisCuss/blob/main/docs/configuration.md#editing-a-running-installation). Identity, token, model and state-directory changes require a restart. Publishing a release does not update an installed host automatically.
 

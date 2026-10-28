@@ -35,7 +35,7 @@ Every successful main-branch quality run SHALL evaluate releases with the config
 - **THEN** the original successful CI run's verified distributions can be retried without rebuilding or changing their version
 
 ### Requirement: Three-stage artifact-preserving application publication
-Application CI SHALL run code checks once, then parallel OS builds, then main-only publication gated on successful builds. Builds SHALL save exact packages and validation receipts. Final semantic-release MUST match their source/tag before publishing those bytes without rebuilding. PRs MUST NOT publish. A read-only candidate preview MAY precede builds; Git tags remain the version authority.
+Application CI SHALL run code checks once, then parallel OS builds, then main-only publication gated on successful builds. Quality MUST NOT plan versions. Builds SHALL save exact packages and receipts; main builds MAY preview the actual analyzer for a local tag. Standard release integration SHALL verify final source/tag before publishing saved bytes without rebuilding. PRs MUST NOT publish. Git tags remain the version authority.
 
 #### Scenario: Platform build fails
 - **WHEN** either platform fails packaging or native installation validation
@@ -48,6 +48,10 @@ Application CI SHALL run code checks once, then parallel OS builds, then main-on
 #### Scenario: Pull request builds
 - **WHEN** a pull request passes code checks
 - **THEN** both platform packages and native validation run, with no remote tag or release publication
+
+#### Scenario: Quality has no release orchestration
+- **WHEN** the quality job runs on a pull request or main push
+- **THEN** it runs checks without release previews, version outputs or publication commands
 
 ### Requirement: Explicit lean quality toolchain
 CI SHALL select Python 3.12 explicitly without a repository `.python-version` file. Ordinary code checks MUST NOT run the release analyzer fixture suite. Node manifests SHALL remain available for OpenSpec and semantic-release, and release fixture tests SHALL remain callable on demand. These choices MUST preserve the ordered quality, platform build and main publication gates.

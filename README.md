@@ -6,7 +6,9 @@
 
 Self-hosted Discord voice profanity competition, with one Python process coordinating one or multiple separately authorized bot identities.
 
-**Current status: working Windows deployment; broader qualification continues.** Protected policy/statistics, one-process coordination, Discord adapters, local speech, privacy controls, reports, diagnostics and native boot installers are implemented. See [runtime setup and limits](docs/runtime.md) and [native install/upgrade guide](deploy/INSTALL.md). Development releases publish automatically; broader live Discord and actual VM reboot qualification remain documented separately.
+**Current status: working Windows deployment; broader qualification continues.** Protected policy/statistics, one-process coordination, Discord adapters, local speech, privacy controls, reports, diagnostics and native boot installers are implemented. See [runtime setup and limits](docs/runtime.md) and [native install/upgrade guide](scripts/deploy/INSTALL.md). Development releases publish automatically; broader live Discord and actual VM reboot qualification remain documented separately.
+
+Contributor tooling and the purpose of each retained custom script are documented in [scripts/README.md](scripts/README.md).
 
 Start with [Discord application setup and permissions](docs/discord-setup.md), then [configuration](docs/configuration.md), [statistics/operations](docs/statistics.md) and [privacy](docs/privacy.md). Run `discuss --config PATH doctor` for offline setup preflight. The example JSON intentionally contains placeholder setup; never put real credentials in the repository. Canonical tracking is the DisCuss Linear roadmap.
 
@@ -46,7 +48,7 @@ Git tags are the sole version source. Hatchling and uv-dynamic-versioning derive
 
 The [three-stage pipeline](docs/releases.md) runs checks once, builds and validates Windows/Linux archives in parallel, then resolves and publishes releases from those saved artifacts. Main resolves the package version before building so the final release can publish those same bytes; final resolution must match the checked source/version before creating a public tag. PRs finish after builds. Release-worthy main merges publish without readiness switches; docs-only changes do not release. SHA-256 checksums and GitHub attestations accompany the exact validated bytes in the same run.
 
-DisCuss GitHub Releases are the canonical application distribution. Lean OS archives contain the wheel, hashed dependencies, native installer/recovery helper, manifest, config example and operator guides. Models stay in external state. The release workflow records the exact receiver dependency, including an immutable development source when configured, and smoke tests the exact extracted assets on both OSes before attesting/uploading them. No managed hosting is planned.
+DisCuss GitHub Releases are the canonical application distribution. Download the Windows ZIP or Linux tarball plus SHA256SUMS; no standalone Python package is needed. Lean OS archives contain the internal wheel, hashed dependencies, native installer/recovery helper, manifest, config example and operator guides. Models stay in external state. The release workflow records the exact receiver dependency, including an immutable development source when configured, and smoke tests the exact extracted assets on both OSes before attesting/uploading them. No managed hosting is planned.
 
 ## Provenance and license
 

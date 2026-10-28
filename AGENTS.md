@@ -15,3 +15,5 @@ Run npm ci, uv sync --locked --all-groups, uv run ruff check ., uv run ruff form
 Tests are offline by default. No production Discord server testing. Live acceptance requires explicit opt-in and a disposable test server. Never commit or print tokens, keys, raw audio or unrelated transcripts. Use server terminology in external interfaces; SDK names remain at the adapter boundary.
 
 Release analyzer fixture tests (`npm run test:release`) remain available for deliberate release-tool changes; they are not an ordinary quality gate. CI selects Python 3.12 explicitly. Node manifests pin OpenSpec and the actual semantic-release toolchain.
+
+Keep routine CI orchestration in workflows using existing actions/CLIs. Custom tools need an application-specific purpose documented in scripts/README.md; avoid wrapper scripts for short commands. Deployment sources live in scripts/deploy, privileged native acceptance in tests/tools. Quality performs no version planning. Main build checkouts may preview the configured analyzer for wheel metadata; final publication must verify source/tag against the saved artifacts before creating a remote tag.

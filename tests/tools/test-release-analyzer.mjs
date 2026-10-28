@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { analyzeCommits } from "@semantic-release/commit-analyzer";
-const config = JSON.parse(await readFile(new URL("../.releaserc.json", import.meta.url), "utf8"));
+const config = JSON.parse(await readFile(new URL("../../.releaserc.json", import.meta.url), "utf8"));
 const [plugin, options] = config.plugins[0];
 assert.equal(plugin, "@semantic-release/commit-analyzer");
 const fixtures = [

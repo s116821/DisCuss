@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-import tarfile
 import zipfile
-from io import BytesIO
 from pathlib import Path
 
 import pytest
-from scripts.collect_release import collect
+from scripts.package_release import collect
 
 
 def fixture(root: Path) -> None:
@@ -20,11 +18,6 @@ def fixture(root: Path) -> None:
         wheel = directory / "discuss-1.1.1-py3-none-any.whl"
         with zipfile.ZipFile(wheel, "w") as archive:
             archive.writestr("discuss-1.1.1.dist-info/METADATA", "Version: 1.1.1\n")
-        with tarfile.open(directory / "discuss-1.1.1.tar.gz", "w:gz") as archive:
-            payload = b"Version: 1.1.1\n"
-            member = tarfile.TarInfo("discuss-1.1.1/PKG-INFO")
-            member.size = len(payload)
-            archive.addfile(member, BytesIO(payload))
         (directory / f"DisCuss-v1.1.1-{platform}.{suffix}").write_bytes(b"validated native fixture")
         (directory / "SHA256SUMS").write_text("validated checksum fixture\n")
         receipt = {
@@ -40,7 +33,11 @@ def test_collection_preserves_saved_bytes(tmp_path: Path) -> None:
     source, output = tmp_path / "saved", tmp_path / "dist"
     fixture(source)
     collect(source, output, "v1.1.1", "abc")
-    assert len(list(output.iterdir())) == 5
+    assert {p.name for p in output.iterdir()} == {
+        "DisCuss-v1.1.1-linux-x64.tar.gz",
+        "DisCuss-v1.1.1-windows-x64.zip",
+        "SHA256SUMS",
+    }
     for path in output.iterdir():
         if path.name != "SHA256SUMS":
             platform = "windows-x64" if path.suffix == ".zip" else "linux-x64"

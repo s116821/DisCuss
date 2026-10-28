@@ -18,9 +18,6 @@ env:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.plan.outputs.tag }}
-      commit: ${{ steps.plan.outputs.commit }}
     env:
       OPENSPEC_TELEMETRY: "0"
       DISCORD_LIVE_TESTS: "0"
@@ -57,13 +54,11 @@ jobs:
         with:
           name: speech-metrics
           path: speech-metrics/*.json
-      - name: Resolve package version for builds
-        id: plan
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: node scripts/plan_release.mjs
 
   build:
     needs: quality
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
     strategy:
       fail-fast: false
       matrix:
@@ -82,6 +77,32 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "0.13.0"
+      - uses: actions/setup-node@v4
+        if: github.event_name == 'push'
+        with:
+          node-version: "24"
+          cache: npm
+      # Wheels embed their version. Resolve a local candidate in disposable
+      # build checkouts; only the final release job can publish a tag.
+      - name: Resolve local build tag with the configured analyzer
+        id: plan
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          npm ci
+          node --input-type=module <<'JS'
+          import semanticRelease from 'semantic-release';
+          import {appendFile, readFile} from 'node:fs/promises';
+          import {pathToFileURL} from 'node:url';
+          import {resolve} from 'node:path';
+          const config = JSON.parse(await readFile('.releaserc.json', 'utf8'));
+          const result = await semanticRelease({
+            ...config, dryRun: true, noCi: true,
+            repositoryUrl: pathToFileURL(resolve('.git')).href,
+            plugins: [config.plugins[0]],
+          });
+          await appendFile(process.env.GITHUB_OUTPUT, `tag=${result ? result.nextRelease.gitTag : ''}\n`);
+          JS
       - name: Linux native codec
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libopus0
@@ -89,18 +110,43 @@ jobs:
         id: package
         shell: pwsh
         env:
-          CANDIDATE_TAG: ${{ needs.quality.outputs.tag }}
+          CANDIDATE_TAG: ${{ steps.plan.outputs.tag }}
+          PLATFORM: ${{ matrix.platform }}
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           uv sync --locked --no-dev --extra runtime
-          uv run --no-dev --extra runtime python -m scripts.build_platform --platform '${{ matrix.platform }}' --candidate "$env:CANDIDATE_TAG"
-      - name: Download previously published upgrade inputs
+          if ($env:CANDIDATE_TAG) { git tag $env:CANDIDATE_TAG $env:GITHUB_SHA }
+          $env:SOURCE_DATE_EPOCH = git show -s --format=%ct HEAD
+          uv build --wheel
+          uv export --quiet --locked --extra runtime --no-dev --no-emit-project --format requirements-txt --output-file runtime-requirements.txt
+          uv run --no-dev --extra runtime python -m scripts.package_release assemble --platform $env:PLATFORM --tag "$env:CANDIDATE_TAG" --commit $env:GITHUB_SHA
+      - name: Download previous published upgrade inputs
         id: previous
+        shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: uv run --no-dev --extra runtime python -m scripts.previous_releases --platform '${{ matrix.platform }}'
+          GH_TOKEN: ${{ github.token }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tags = @(gh release list --limit 100 --exclude-drafts --exclude-pre-releases --json tagName | ConvertFrom-Json | Sort-Object { [version]$_.tagName.TrimStart('v') } | Select-Object -Last 2 -ExpandProperty tagName)
+          if ($tags.Count -ne 2) { throw 'Two published releases are required for upgrade validation' }
+          $suffix = if ($IsWindows) { 'zip' } else { 'tar.gz' }
+          for ($i = 0; $i -lt 2; $i++) {
+            $name = "DisCuss-$($tags[$i])-$env:PLATFORM.$suffix"
+            gh release download $tags[$i] --pattern $name --pattern SHA256SUMS --dir "previous/$i"
+            $checksums = @{}
+            Get-Content "previous/$i/SHA256SUMS" | ForEach-Object { $hash, $file = $_ -split '  ', 2; $checksums[$file] = $hash }
+            if ((Get-FileHash "previous/$i/$name" -Algorithm SHA256).Hash -ne $checksums[$name]) { throw 'Published bundle checksum mismatch' }
+          }
+          "first=$($tags[0])" >> $env:GITHUB_OUTPUT
+          "second=$($tags[1])" >> $env:GITHUB_OUTPUT
       - name: Exact saved archives install, upgrade, rollback and removal
         shell: pwsh
-        run: uv run --no-dev --extra runtime python -m scripts.smoke_native previous/0 --tag '${{ steps.previous.outputs.first }}' --upgrade previous/1 --upgrade-tag '${{ steps.previous.outputs.second }}' --second-upgrade dist --second-upgrade-tag '${{ steps.package.outputs.tag }}'
+        env:
+          FIRST_TAG: ${{ steps.previous.outputs.first }}
+          SECOND_TAG: ${{ steps.previous.outputs.second }}
+          BUILD_TAG: ${{ steps.package.outputs.tag }}
+        run: uv run --no-dev --extra runtime python tests/tools/smoke_native.py previous/0 --tag $env:FIRST_TAG --upgrade previous/1 --upgrade-tag $env:SECOND_TAG --second-upgrade dist --second-upgrade-tag $env:BUILD_TAG
       - uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.platform }}
@@ -108,7 +154,7 @@ jobs:
 
   release:
     needs: [quality, build]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.quality.outputs.tag != ''
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.outputs.tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -117,8 +163,8 @@ jobs:
       id-token: write
       attestations: write
     env:
-      EXPECTED_TAG: ${{ needs.quality.outputs.tag }}
-      EXPECTED_COMMIT: ${{ needs.quality.outputs.commit }}
+      EXPECTED_TAG: ${{ needs.build.outputs.tag }}
+      EXPECTED_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -140,11 +186,13 @@ jobs:
           path: saved-builds/
       - name: Verify source, version and checksums; collect saved files
         shell: pwsh
-        run: uv run --no-dev --extra runtime python -m scripts.collect_release saved-builds --tag "$env:EXPECTED_TAG" --commit "$env:EXPECTED_COMMIT"
+        run: uv run --no-dev --extra runtime python -m scripts.package_release collect saved-builds --tag "$env:EXPECTED_TAG" --commit "$env:EXPECTED_COMMIT"
       - uses: actions/attest-build-provenance@v2
         with:
           subject-path: 'dist/*'
       - name: Final semantic-release resolution and publication
+        uses: cycjimmy/semantic-release-action@v6
+        with:
+          semantic_version: "25.0.2"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/release.mjs

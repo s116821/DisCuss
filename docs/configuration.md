@@ -6,7 +6,7 @@ Run `discuss --config /protected/path/config.json doctor` (Windows accepts an ab
 
 Use server terminology in all operator interfaces. bots declares each identity/token once; servers references names. Names and enabled tokens must be unique. One bot identity may be reused across separate servers. IDs are positive decimal strings, bounded to Discord's identifier range.
 
-Linux config requires 0600 permissions. Windows preflight rejects broad Everyone/Authenticated Users/Users read grants; restrict NTFS access to the runtime identity, SYSTEM and administrators. The [native installers](https://github.com/s116821/DisCuss/blob/main/deploy/INSTALL.md) establish deployment ACLs and boot startup. State paths resolve relative to the config document; production state should be external, e.g. /var/lib/discuss or ProgramData/DisCuss/state.
+Linux config requires 0600 permissions. Windows preflight rejects broad Everyone/Authenticated Users/Users read grants; restrict NTFS access to the runtime identity, SYSTEM and administrators. The [native installers](https://github.com/s116821/DisCuss/blob/main/scripts/deploy/INSTALL.md) establish deployment ACLs and boot startup. State paths resolve relative to the config document; production state should be external, e.g. /var/lib/discuss or ProgramData/DisCuss/state.
 
 ## Policy defaults
 
