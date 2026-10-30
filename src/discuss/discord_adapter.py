@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import ssl
 import time
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
@@ -183,7 +184,11 @@ class DiscordListener:
             try:
                 log.info("gateway_connecting", extra={"identity": self.name, "attempt": attempt})
                 async with self.client:
-                    await self.client.start(self.bot.token.get_secret_value(), reconnect=True)
+                    # Reload system trust for this attempt instead of keeping
+                    # aiohttp's import-time SSL context through a boot outage.
+                    async with aiohttp.TCPConnector(limit=0, ssl=ssl.create_default_context()) as connector:
+                        self.client.http.connector = connector
+                        await self.client.start(self.bot.token.get_secret_value(), reconnect=True)
                 return
             except (discord.LoginFailure, discord.PrivilegedIntentsRequired):
                 log.error("gateway_authorization_failed", extra={"identity": self.name}, exc_info=True)

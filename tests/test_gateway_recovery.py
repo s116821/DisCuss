@@ -51,13 +51,19 @@ def test_extended_boot_outage_recovers_and_reopens_real_sdk_state(tmp_path, monk
             gateway_error(4009),
             gateway_error(1006),
         ]
-        delays, attempts = [], []
+        delays, attempts, contexts, connectors = [], [], [], []
+
+        def verified_context():
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            contexts.append(context)
+            return context
 
         async def start(token, *, reconnect):
             # Exercise real SDK close/clear/context setup without HTTP/socket I/O.
             assert reconnect and token == worker.bot.token.get_secret_value()
             assert worker.client.loop is asyncio.get_running_loop()
             assert not worker.client.is_closed() and not worker.client.is_ready()
+            connectors.append(worker.client.http.connector)
             attempts.append(1)
             if len(attempts) <= len(errors):
                 raise errors[len(attempts) - 1]
@@ -66,12 +72,16 @@ def test_extended_boot_outage_recovers_and_reopens_real_sdk_state(tmp_path, monk
             delays.append(delay)
 
         monkeypatch.setattr(worker.client, "start", start)
+        monkeypatch.setattr("discuss.discord_adapter.ssl.create_default_context", verified_context)
         monkeypatch.setattr("discuss.discord_adapter.asyncio.sleep", sleep)
         with caplog.at_level(logging.INFO, logger="discuss.discord_adapter"):
             await worker._run()
         assert len(attempts) == len(errors) + 1
         assert delays == [1, 2, 4, 8, 16] + [30] * (len(errors) - 5)
         assert worker.client.is_closed() and not worker.setup_failed
+        assert len(contexts) == len(attempts) == len({id(c) for c in connectors})
+        assert all(c.verify_mode == ssl.CERT_REQUIRED and c.check_hostname for c in contexts)
+        assert all(c.closed for c in connectors)
         assert worker.client.on_ready == ready_handler
         assert worker.tree.client is worker.client and worker.commands.get_command("standings") is not None
         failures = [r for r in caplog.records if r.msg == "gateway_connection_failed"]

@@ -2,7 +2,7 @@
 
 ## Boot-time connection recovery
 
-The Windows task starts at boot under LOCAL SERVICE; Linux uses systemd. A host reporting network availability can still have unavailable DNS, certificate/trust initialization or Discord access. Transient login/transport failures retry in the same process until access returns, with delays of 1, 2, 4, 8, 16 and then at most 30 seconds. There is no five-attempt lifetime limit. SDK sessions close and reopen between outer attempts; normal established-gateway reconnect remains SDK-managed. TLS certificate verification stays enabled.
+The Windows task starts at boot under LOCAL SERVICE; Linux uses systemd. A host reporting network availability can still have unavailable DNS, certificate/trust initialization or Discord access. Transient login/transport failures retry in the same process until access returns, with delays of 1, 2, 4, 8, 16 and then at most 30 seconds. There is no five-attempt lifetime limit. SDK sessions close and reopen between outer attempts, each with a fresh verified TLS context loading current system trust; normal established-gateway reconnect remains SDK-managed. Certificate and hostname verification stay enabled.
 
 Invalid credentials, privileged-intent authorization errors, permanent HTTP request failures and non-reconnectable gateway setup codes stop the affected identity intentionally. Fix those settings and restart; other healthy identities continue. Unexpected code faults still surface for bounded OS crash supervision. Stop requests cancel a pending connection/backoff. A running task alone is not evidence of Discord readiness: check gateway/voice readiness and fresh health snapshots.
 
