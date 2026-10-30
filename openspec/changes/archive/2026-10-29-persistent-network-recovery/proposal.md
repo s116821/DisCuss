@@ -6,7 +6,7 @@ The real October 29 reboot launched DisCuss but early DNS/TLS connection failure
 
 ## What Changes
 
-- Keep each listener alive through transient initial-login/transport failures with capped backoff, rather than permanently exhausting a small attempt budget.
+- Keep each listener alive through Internet/connectivity outages with capped backoff; retain five failures and exit for real non-connectivity startup errors.
 - Clean/reopen SDK connection state between attempts and retain immediate shutdown and per-identity isolation.
 - Stop deliberately for invalid authorization or permanent gateway setup errors; retain TLS verification and safe operational logs.
 - Document boot recovery and add offline outage/recovery/cancellation/fatal-error regressions; publish and install the fix without modifying protected policy/state.

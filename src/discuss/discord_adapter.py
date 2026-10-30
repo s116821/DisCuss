@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import errno
 import logging
+import socket
 import ssl
 import time
 from collections.abc import Callable, Iterable
@@ -28,6 +30,24 @@ from .speech import PipelineSink, SpeechPipeline
 from .storage import Store
 
 log = logging.getLogger(__name__)
+
+
+def connectivity_failure(error: BaseException) -> bool:
+    """Only loss of connectivity bypasses the startup failure budget."""
+    if isinstance(error, (aiohttp.ClientSSLError, ssl.SSLError)):
+        return False
+    if isinstance(error, (aiohttp.ClientConnectionError, ConnectionError, TimeoutError, socket.gaierror)):
+        return True
+    if isinstance(error, discord.ConnectionClosed):
+        return error.code in {1000, 1001, 1006, 1012}
+    return isinstance(error, OSError) and error.errno in {
+        errno.ENETDOWN,
+        errno.ENETUNREACH,
+        errno.EHOSTUNREACH,
+        10050,  # Windows network down
+        10051,  # Windows network unreachable
+        10065,  # Windows host unreachable
+    }
 
 
 def permitted_admin(interaction: discord.Interaction) -> bool:
@@ -86,6 +106,7 @@ class DiscordListener:
         self._task: asyncio.Task[None] | None = None
         self._closing = False
         self.setup_failed = False
+        self._startup_failures = 0
         self._expected_channels: dict[str, str] = {}
         self._name_cache: dict[str, tuple[float, str]] = {}
         self._name_slots = asyncio.Semaphore(4)
@@ -94,6 +115,7 @@ class DiscordListener:
 
         @self.client.event
         async def on_ready() -> None:
+            self._startup_failures = 0
             log.info("gateway_ready", extra={"identity": self.name})
             for server in self.config.servers:
                 if server.primary_bot == self.name:
@@ -218,12 +240,25 @@ class DiscordListener:
                     log.error("gateway_setup_failed", extra={"identity": self.name}, exc_info=True)
                     self.setup_failed = True
                     return
+                network_outage = connectivity_failure(error)
+                if not network_outage:
+                    self._startup_failures += 1
+                    if self._startup_failures >= 5:
+                        log.error(
+                            "gateway_retry_exhausted", extra={"identity": self.name, "attempt": attempt}, exc_info=True
+                        )
+                        return
                 # The context closes sockets/sessions; clear reopens SDK state.
                 # Its next context entry also initializes the client's asyncio loop.
                 self.client.clear()
                 log.warning(
                     "gateway_connection_failed",
-                    extra={"identity": self.name, "attempt": attempt, "delay_seconds": delay},
+                    extra={
+                        "identity": self.name,
+                        "attempt": attempt,
+                        "delay_seconds": delay,
+                        "reason": "connectivity" if network_outage else "startup_failure",
+                    },
                     exc_info=True,
                 )
                 await asyncio.sleep(delay)
