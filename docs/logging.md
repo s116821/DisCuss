@@ -52,6 +52,8 @@ Older releases could redirect stdout/stderr without configuring the logging API,
 
 ## Ordinary configuration edits and restarts
 
+For boot failures, correlate `service_starting`, `gateway_connecting` and `gateway_connection_failed` with `gateway_ready`. Transient failures retry with a 30-second maximum backoff until recovery or shutdown; they do not exhaust a fixed attempt budget. `gateway_authorization_failed` / `gateway_setup_failed` require correcting permanent setup. Existing Windows Task Scheduler retries remain a bounded fallback for process crashes, not the network recovery mechanism. A historical result `0x1` means that run exited with code 1; it does not identify the cause without the service events.
+
 Use an elevated PowerShell session for the existing Windows installation. Edit the protected JSON directly with your editor, preserving unrelated settings, then validate and restart using the installed interpreter:
 
 ```powershell

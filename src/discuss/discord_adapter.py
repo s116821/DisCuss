@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import aiohttp
 import discord
 from discord import app_commands
 from discord_voice_reception import AudioFrame, VoiceRecvClient
@@ -174,28 +175,54 @@ class DiscordListener:
                     await self.tree.sync(guild=target)
 
     async def _run(self) -> None:
-        # SDK reconnect handles normal gateway faults. Bounded identity-level retries
-        # handle faults escaping client.start without exposing exception contents.
-        for attempt in range(5):
-            if self._closing:
-                return
+        # The SDK reconnects an established gateway. Initial login can fail before
+        # that loop exists, particularly while DNS/network trust initializes at boot.
+        attempt, delay = 0, 1
+        while not self._closing:
+            attempt += 1
             try:
-                log.info("gateway_connecting", extra={"identity": self.name, "attempt": attempt + 1})
-                await self.client.start(self.bot.token.get_secret_value(), reconnect=True)
+                log.info("gateway_connecting", extra={"identity": self.name, "attempt": attempt})
+                async with self.client:
+                    await self.client.start(self.bot.token.get_secret_value(), reconnect=True)
                 return
-            except discord.LoginFailure:
+            except (discord.LoginFailure, discord.PrivilegedIntentsRequired):
                 log.error("gateway_authorization_failed", extra={"identity": self.name}, exc_info=True)
                 self.setup_failed = True
                 return
-            except (OSError, discord.HTTPException):
+            except (
+                OSError,
+                aiohttp.ClientError,
+                discord.HTTPException,
+                discord.GatewayNotFound,
+                discord.ConnectionClosed,
+            ) as error:
+                if self._closing:
+                    return
+                invalid_http = (
+                    isinstance(error, discord.HTTPException) and 400 <= error.status < 500 and error.status != 429
+                )
+                invalid_gateway = isinstance(error, discord.ConnectionClosed) and error.code in {
+                    4004,
+                    4010,
+                    4011,
+                    4012,
+                    4013,
+                    4014,
+                }
+                if invalid_http or invalid_gateway:
+                    log.error("gateway_setup_failed", extra={"identity": self.name}, exc_info=True)
+                    self.setup_failed = True
+                    return
+                # The context closes sockets/sessions; clear reopens SDK state.
+                # Its next context entry also initializes the client's asyncio loop.
+                self.client.clear()
                 log.warning(
                     "gateway_connection_failed",
-                    extra={"identity": self.name, "attempt": attempt + 1, "delay_seconds": min(30, 2**attempt)},
+                    extra={"identity": self.name, "attempt": attempt, "delay_seconds": delay},
                     exc_info=True,
                 )
-                if attempt == 4:
-                    return
-                await asyncio.sleep(min(30, 2**attempt))
+                await asyncio.sleep(delay)
+                delay = min(30, delay * 2)
 
     def ready(self, server: str) -> bool:
         return self.client.is_ready() and self.client.get_guild(int(server)) is not None

@@ -1,5 +1,11 @@
 # Running DisCuss
 
+## Boot-time connection recovery
+
+The Windows task starts at boot under LOCAL SERVICE; Linux uses systemd. A host reporting network availability can still have unavailable DNS, certificate/trust initialization or Discord access. Transient login/transport failures retry in the same process until access returns, with delays of 1, 2, 4, 8, 16 and then at most 30 seconds. There is no five-attempt lifetime limit. SDK sessions close and reopen between outer attempts; normal established-gateway reconnect remains SDK-managed. TLS certificate verification stays enabled.
+
+Invalid credentials, privileged-intent authorization errors, permanent HTTP request failures and non-reconnectable gateway setup codes stop the affected identity intentionally. Fix those settings and restart; other healthy identities continue. Unexpected code faults still surface for bounded OS crash supervision. Stop requests cancel a pending connection/backoff. A running task alone is not evidence of Discord readiness: check gateway/voice readiness and fresh health snapshots.
+
 The application owns one Python process, a shared SQLite store, one local Whisper model and a single bounded inference thread. Each separately authorized bot identity owns its own gateway/voice connections. One identity can join one channel per server, with independent assignments across servers. Fixed mode needs distinct bot applications for simultaneous channels within the same server. Do not use user tokens.
 
 Development requires `uv sync --locked --all-groups --extra runtime`. Linux additionally needs the distribution's `libopus0` package. The runtime pins `discord-voice-reception==1.0.0` from PyPI with hashed locked distributions. Its receiver source is identical to the previously used immutable development commit. discord.py 2.7.1 handles gateway/DAVE sessions; the receiver handles attributed bounded audio delivery. See qualification-status.md for live MLS/DAVE acceptance evidence.
